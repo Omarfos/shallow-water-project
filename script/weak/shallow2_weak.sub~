@@ -1,10 +1,10 @@
 #!/bin/bash
 
 #SBATCH -J shallow
-#SBATCH -o shallow_%j.out
-#SBATCH -e shallow_%j.err
-#SBATCH --nodes=1
-#SBATCH --ntasks=1
+#SBATCH -o results/baseline/weak/shallow_2n.out
+#SBATCH -e results/baseline/weak/shallow_2n.err
+#SBATCH --nodes=2
+#SBATCH --ntasks=2
 #SBATCH --tasks-per-node=1
 #SBATCH --cpus-per-task=1
 #SBATCH --get-user-env
@@ -14,5 +14,5 @@
 
 source /etc/profile.d/modules.sh
 #module load openmpi-4.0.0
-cd $HOME/shallow-water
-src/lshallow tests.lua dam 1000
+cd $HOME/projects/CS5220/shallow-water-project
+src/lshallow tests.lua dam 2000

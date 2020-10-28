@@ -1,12 +1,14 @@
 #include "stepper.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <math.h>
 #include <assert.h>
 #include <stdbool.h>
 
 #define BATCH 8 
+#define SUBDOMAIN 4 
 
 //ldoc on
 /**
@@ -327,7 +329,12 @@ void central2d_step(float* restrict u, float* restrict v,
     float dtcdx2 = 0.5 * dt / dx;
     float dtcdy2 = 0.5 * dt / dy;
 
-    flux(f, g, u, nx_all * ny_all, nx_all * ny_all);
+    // flux(f, g, u, nx_all * ny_all, nx_all * ny_all);
+    for (int i = 0; i < SUBDOMAIN ; i++) {
+        int offset = i * (nx_all * ny_all) / SUBDOMAIN;
+        flux(f + offset, g + offset, u + offset, 
+            (nx_all * ny_all) / SUBDOMAIN, nx_all * ny_all);
+    }
 
     central2d_predict(v, scratch, u, f, g, dtcdx2, dtcdy2,
                       nx_all, ny_all, nfield);

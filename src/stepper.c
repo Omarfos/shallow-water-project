@@ -6,6 +6,8 @@
 #include <assert.h>
 #include <stdbool.h>
 
+#define BATCH 8 
+
 //ldoc on
 /**
  * ## Implementation
@@ -18,7 +20,7 @@ central2d_t* central2d_init(float w, float h, int nx, int ny,
                             float cfl)
 {
     // We extend to a four cell buffer to avoid BC comm on odd time steps
-    int ng = 4;
+    int ng = 4 * BATCH;
 
     central2d_t* sim = (central2d_t*) malloc(sizeof(central2d_t));
     sim->nx = nx;
@@ -380,16 +382,18 @@ int central2d_xrun(float* restrict u, float* restrict v,
             dt = (tfinal-t)/2;
             done = true;
         }
-        central2d_step(u, v, scratch, f, g,
-                       0, nx+4, ny+4, ng-2,
-                       nfield, flux, speed,
-                       dt, dx, dy);
-        central2d_step(v, u, scratch, f, g,
-                       1, nx, ny, ng,
-                       nfield, flux, speed,
-                       dt, dx, dy);
-        t += 2*dt;
-        nstep += 2;
+        for (int i = 0; i < BATCH && t + 2*dt < tfinal; i++) {
+            central2d_step(u, v, scratch, f, g,
+                           0, nx+4, ny+4, ng-2,
+                           nfield, flux, speed,
+                           dt, dx, dy);
+            central2d_step(v, u, scratch, f, g,
+                           1, nx, ny, ng,
+                           nfield, flux, speed,
+                           dt, dx, dy);
+            t += 2*dt;
+            nstep += 2;
+        }
     }
     return nstep;
 }

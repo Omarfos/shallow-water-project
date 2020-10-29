@@ -116,20 +116,6 @@ void central2d_batch_run(central2d_t* sim, float tfinal, int batch,
  */
 void central2d_periodic(float* u, int nx, int ny, int ng, int nfield);
 
-
-// extern const char* QUERY; //just declaration
-// #define BATCH 40  // shouild be a multiplier of 10 (10 is the number of steps between two adjacent frames)
-// #define BLOCK_NX 32  // effective block size of x axis (disjoint)
-// #define BLOCK_NY 32  // effective block size of y axis (disjoint)
-
-#ifndef BLOCK_NX
-#define BLOCK_NX 4
-#endif
-
-#ifndef BLOCK_NY
-#define BLOCK_NY 4
-#endif
-
 void sub_copyin(central2d_t* restrict sim_local,
                 central2d_t* restrict sim_global,
                 int own_start_x, int own_end_x,

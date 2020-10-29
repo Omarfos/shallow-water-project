@@ -2,6 +2,7 @@
 #define STEPPER_H
 
 #include <math.h>
+#include <stdbool.h>
 
 //ldoc
 /**
@@ -67,7 +68,11 @@ typedef struct central2d_t {
  */
 central2d_t* central2d_init(float w, float h, int nx, int ny,
                             int nfield, flux_t flux, speed_t speed,
-                            float cfl);
+                            float cfl, int ng);
+central2d_t* central2d_sub_init(float dx, float dy, int nx, int ny,
+                            int nfield, flux_t flux, speed_t speed,
+                            float cfl, int ng);
+
 void central2d_free(central2d_t* sim);
 
 /**
@@ -90,7 +95,10 @@ int  central2d_offset(central2d_t* sim, int k, int ix, int iy);
  * at the reference grid.
  *
  */
-int central2d_run(central2d_t* sim, float tfinal);
+int central2d_run(central2d_t* sim, float tfinal, int batch);
+
+void central2d_batch_run(central2d_t* sim, float tfinal, int batch,
+                        int* nstep, float* t, bool* done);
 
 /**
  * ### Applying boundary conditions
@@ -107,6 +115,39 @@ int central2d_run(central2d_t* sim, float tfinal);
  *
  */
 void central2d_periodic(float* u, int nx, int ny, int ng, int nfield);
+
+
+// extern const char* QUERY; //just declaration
+// #define BATCH 40  // shouild be a multiplier of 10 (10 is the number of steps between two adjacent frames)
+// #define BLOCK_NX 32  // effective block size of x axis (disjoint)
+// #define BLOCK_NY 32  // effective block size of y axis (disjoint)
+
+#ifndef BLOCK_NX
+#define BLOCK_NX 4
+#endif
+
+#ifndef BLOCK_NY
+#define BLOCK_NY 4
+#endif
+
+void sub_copyin(central2d_t* restrict sim_local,
+                central2d_t* restrict sim_global,
+                int own_start_x, int own_end_x,
+                int own_start_y, int own_end_y);
+
+void sub_copyout(central2d_t* restrict sim_local,
+                 central2d_t* restrict sim_global,
+                 int own_start_x, int own_end_x,
+                 int own_start_y, int own_end_y);
+
+void central2d_sub_run(central2d_t* restrict sim_local,
+              central2d_t* restrict sim_global,
+              int own_start_x, int own_end_x,
+              int own_start_y, int own_end_y,
+              float tfinal, int batch,
+              int* nstep, float* t, bool* done);
+
+int* alloc_partition(int n, int ng, int block_n, int* npart);
 
 //ldoc off
 #endif /* STEPPER_H */

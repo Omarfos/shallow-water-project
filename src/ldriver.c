@@ -1,6 +1,8 @@
 #include "stepper.h"
 #include "shallow2d.h"
 
+#define _OPENMP 1
+
 #ifdef _OPENMP
 #include <omp.h>
 #elif defined SYSTIME
@@ -13,6 +15,9 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdbool.h>
 
 //ldoc on
 /**
@@ -166,6 +171,7 @@ int run_sim(lua_State* L)
     lua_getfield(L, 1, "ny");
     lua_getfield(L, 1, "vskip");
     lua_getfield(L, 1, "frames");
+    lua_getfield(L, 1, "batch");
     lua_getfield(L, 1, "out");
 
     double w     = luaL_optnumber(L, 2, 2.0);
@@ -176,43 +182,108 @@ int run_sim(lua_State* L)
     int ny       = luaL_optinteger(L, 7, nx);
     int vskip    = luaL_optinteger(L, 8, 1);
     int frames   = luaL_optinteger(L, 9, 50);
-    const char* fname = luaL_optstring(L, 10, "sim.out");
+    int batch   = luaL_optinteger(L, 10, 1);
+    const char* fname = luaL_optstring(L, 11, "sim.out");
     lua_pop(L, 9);
 
-    central2d_t* sim = central2d_init(w,h, nx,ny,
-                                      3, shallow2d_flux, shallow2d_speed, cfl);
-    lua_init_sim(L,sim);
+    int ng = 4 + 2 * (batch-1);
+    central2d_t* sim_global = central2d_init(w,h, nx,ny, 3, shallow2d_flux, 
+                                      shallow2d_speed, cfl, ng);
+    
+    // Partition the x axis
+    int npartx;
+    int* offsets_x = alloc_partition(sim_global->nx, sim_global->ng, BLOCK_NX, &npartx);
+    printf("offsets_x: \n");
+    for (int i = 0; i <= npartx; ++i) 
+        printf("%d, ", offsets_x[i]);
+    printf("\n");
+
+    // Partition the y axis
+    int nparty;
+    int* offsets_y = alloc_partition(sim_global->ny, sim_global->ng, BLOCK_NY, &nparty);
+    printf("offsets_y: \n");
+    for (int i = 0; i <= nparty; ++i) 
+        printf("%d, ", offsets_y[i]);
+    printf("\n");
+
+    // Set up storage for subdomains
+    central2d_t** sim_local_all = (central2d_t**) malloc(npartx * nparty * sizeof(central2d_t*));
+    for (int j = 0; j < nparty; ++j)
+        for (int i = 0; i < npartx; ++i){
+            nx = offsets_x[i+1] - offsets_x[i];
+            ny = offsets_y[j+1] - offsets_y[j];
+            sim_local_all[i + j*npartx] = central2d_sub_init(sim_global->dx, sim_global->dy, nx, ny, 3, 
+                                          shallow2d_flux, shallow2d_speed, cfl, ng);
+        }
+
+    // Initial and periodic boundary condition of sig_global
+    lua_init_sim(L, sim_global);
+    central2d_periodic(sim_global->u, sim_global->nx, sim_global->ny, sim_global->ng, 3);
+
     printf("%g %g %d %d %g %d %g\n", w, h, nx, ny, cfl, frames, ftime);
-    FILE* viz = viz_open(fname, sim, vskip);
-    solution_check(sim);
-    viz_frame(viz, sim, vskip);
+    FILE* viz = viz_open(fname, sim_global, vskip);
+    solution_check(sim_global);
+    viz_frame(viz, sim_global, vskip);
 
     double tcompute = 0;
     for (int i = 0; i < frames; ++i) {
 #ifdef _OPENMP
         double t0 = omp_get_wtime();
-        int nstep = central2d_run(sim, ftime);
+
+        // Initial nstep and t arrays of all subdomains
+        int nstep[npartx*nparty];
+        float t[npartx*nparty];
+        bool done[npartx*nparty];
+        memset(nstep, 0, npartx*nparty*sizeof(int));
+        memset(t, 0.0, npartx*nparty*sizeof(float));
+        memset(done, false, npartx*nparty*sizeof(bool));
+
+        // Run
+        while (!done[0]){
+            // copy sim_global to sim_local and run one batch time
+            for (int j = 0; j < nparty; ++j)
+                for (int i = 0; i < npartx; ++i){
+                    // printf("i = %d, j = %d", i, j);
+                    central2d_sub_run(sim_local_all[i + j*npartx], sim_global,
+                            offsets_x[i], offsets_x[i+1],
+                            offsets_y[j], offsets_y[j+1],
+                            ftime, batch, &nstep[i + j*npartx], 
+                            &t[i + j*npartx], &done[i + j*npartx]);
+                }
+
+            // copy sim_locals back to sim_global (nan error here)
+            for (int j = 0; j < nparty; ++j)
+                for (int i = 0; i < npartx; ++i){
+                    sub_copyout(sim_local_all[i + j*npartx], sim_global,
+                            offsets_x[i], offsets_x[i+1],
+                            offsets_y[j], offsets_y[j+1]);
+                }
+
+            // Boundary condition
+            central2d_periodic(sim_global->u, sim_global->nx, sim_global->ny, sim_global->ng, 3);
+        }
+
         double t1 = omp_get_wtime();
         double elapsed = t1-t0;
 #elif defined SYSTIME
         struct timeval t0, t1;
         gettimeofday(&t0, NULL);
-        int nstep = central2d_run(sim, ftime);
+        int nstep = central2d_run(sim_global, ftime, batch);
         gettimeofday(&t1, NULL);
         double elapsed = (t1.tv_sec-t0.tv_sec) + (t1.tv_usec-t0.tv_usec)*1e-6;
-#else
-        int nstep = central2d_run(sim, ftime);
+#else   
+        int nstep = central2d_run(sim_global, ftime, batch);
         double elapsed = 0;
 #endif
-        solution_check(sim);
+        solution_check(sim_global);
         tcompute += elapsed;
-        printf("  Time: %e (%e for %d steps)\n", elapsed, elapsed/nstep, nstep);
-        viz_frame(viz, sim, vskip);
+        printf("  Time: %e (%e for %d steps)\n", elapsed, elapsed/nstep[0], nstep[0]);
+        viz_frame(viz, sim_global, vskip);
     }
     printf("Total compute time: %e\n", tcompute);
 
     viz_close(viz);
-    central2d_free(sim);
+    central2d_free(sim_global);
     return 0;
 }
 

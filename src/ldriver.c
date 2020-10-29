@@ -210,6 +210,7 @@ int run_sim(lua_State* L)
     printf("\n");
 
     // Set up storage for subdomains
+    int nx, ny;
     central2d_t** sim_local_all = (central2d_t**) malloc(npartx * nparty * sizeof(central2d_t*));
     for (int j = 0; j < nparty; ++j)
         for (int i = 0; i < npartx; ++i){

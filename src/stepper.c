@@ -127,6 +127,7 @@ void central2d_periodic(float* restrict u,
     int t = ng*s, tg = (ny+ng)*s;
 
     // Copy data into ghost cells on each side
+    #pragma omp parallel for 
     for (int k = 0; k < nfield; ++k) {
         float* uk = u + k*field_stride;
         copy_subgrid(uk+lg, uk+l, ng, ny+2*ng, s);
@@ -539,6 +540,7 @@ void sub_field_copyout(float* restrict field_local, float* restrict field_global
     int s_sub_nx = dend_y - dstart_y;
     int s_sub_field = s_sub_nx * s_sub_ny;
 
+    // #pragma omp parallel for collapse(3) - parallizing slows it down here
     for (int n = 0; n < nfield; ++n)
         for (int j = 0; j < s_sub_nx; ++j)
             for (int i =0; i < s_sub_ny; ++i)

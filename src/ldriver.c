@@ -248,7 +248,8 @@ int run_sim(lua_State* L)
         while (!done_all){
             done_all = true;
             // copy sim_global to sim_local and run one batch time
-            for (int j = 0; j < nparty; ++j)
+            #pragma omp parallel for collapse(2)
+            for (int j = 0; j < nparty; ++j) {
                 for (int i = 0; i < npartx; ++i){
                     if (!done[i + j*npartx]) done_all = false;
                     central2d_sub_run(sim_local_all[i + j*npartx], sim_global,
@@ -257,14 +258,17 @@ int run_sim(lua_State* L)
                             ftime, batch, &nstep[i + j*npartx], 
                             &t[i + j*npartx], &done[i + j*npartx]);
                 }
+            }
 
             // copy sim_locals back to sim_global (nan error here)
-            for (int j = 0; j < nparty; ++j)
+            //#pragma omp parallel for collapse(2) cannot parallize this (get nan)
+            for (int j = 0; j < nparty; ++j) {
                 for (int i = 0; i < npartx; ++i){
                     sub_copyout(sim_local_all[i + j*npartx], sim_global,
                             offsets_x[i], offsets_x[i+1],
                             offsets_y[j], offsets_y[j+1]);
                 }
+            }
 
             // Boundary condition
             central2d_periodic(sim_global->u, sim_global->nx, sim_global->ny, sim_global->ng, 3);

@@ -4,13 +4,15 @@
 nx = tonumber(args[2]) or 200
 vskip = math.floor(nx/200)
 batch = tonumber(args[3]) or 1 -- batch time steps (batch 1 equals 2 steps)
+block_n = tonumber(args[4]) or 64 -- block size of x or y axis
 
 pond = {
   init = function(x,y) return 1, 0, 0 end,
   out = "pond.out",
   nx = nx,
   vskip = vskip,
-  batch = batch
+  batch = batch,
+  block_n = block_n
 }
 
 river = {
@@ -18,7 +20,8 @@ river = {
   out = "river.out",
   nx = nx,
   vskip = vskip,
-  batch = batch
+  batch = batch,
+  block_n = block_n
 }
 
 dam = {
@@ -32,7 +35,8 @@ dam = {
   out = "dam_break.out",
   nx = nx,
   vskip = vskip,
-  batch = batch
+  batch = batch,
+  block_n = block_n
 }
 
 wave = {
@@ -43,7 +47,8 @@ wave = {
   frames = 100,
   nx = nx,
   vskip = vskip,
-  batch = batch
+  batch = batch,
+  block_n = block_n
 }
 
 simulate(_G[args[1]])

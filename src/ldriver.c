@@ -242,12 +242,15 @@ int run_sim(lua_State* L)
         memset(t, 0.0, npartx*nparty*sizeof(float));
         memset(done, false, npartx*nparty*sizeof(bool));
 
+        bool done_all = false;
+
         // Run
-        while (!done[0]){
+        while (!done_all){
+            done_all = true;
             // copy sim_global to sim_local and run one batch time
             for (int j = 0; j < nparty; ++j)
                 for (int i = 0; i < npartx; ++i){
-                    // printf("i = %d, j = %d", i, j);
+                    if (!done[i + j*npartx]) done_all = false;
                     central2d_sub_run(sim_local_all[i + j*npartx], sim_global,
                             offsets_x[i], offsets_x[i+1],
                             offsets_y[j], offsets_y[j+1],

@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdio.h>
 #include <math.h>
 #include <assert.h>
 #include <stdbool.h>
@@ -19,11 +20,8 @@
 
 central2d_t* central2d_init(float w, float h, int nx, int ny,
                             int nfield, flux_t flux, speed_t speed,
-                            float cfl)
+                            float cfl, int ng)
 {
-    // We extend to a four cell buffer to avoid BC comm on odd time steps
-    int ng = 4 * BATCH;
-
     central2d_t* sim = (central2d_t*) malloc(sizeof(central2d_t));
     sim->nx = nx;
     sim->ny = ny;
@@ -31,6 +29,35 @@ central2d_t* central2d_init(float w, float h, int nx, int ny,
     sim->nfield = nfield;
     sim->dx = w/nx;
     sim->dy = h/ny;
+    sim->flux = flux;
+    sim->speed = speed;
+    sim->cfl = cfl;
+
+    int nx_all = nx + 2*ng;
+    int ny_all = ny + 2*ng;
+    int nc = nx_all * ny_all;
+    int N  = nfield * nc;
+    sim->u  = (float*) malloc((4*N + 6*nx_all)* sizeof(float));
+    sim->v  = sim->u +   N;
+    sim->f  = sim->u + 2*N;
+    sim->g  = sim->u + 3*N;
+    sim->scratch = sim->u + 4*N;
+
+    return sim;
+}
+
+
+central2d_t* central2d_sub_init(float dx, float dy, int nx, int ny,
+                            int nfield, flux_t flux, speed_t speed,
+                            float cfl, int ng)
+{
+    central2d_t* sim = (central2d_t*) malloc(sizeof(central2d_t));
+    sim->nx = nx;
+    sim->ny = ny;
+    sim->ng = ng;
+    sim->nfield = nfield;
+    sim->dx = dx;
+    sim->dy = dy;
     sim->flux = flux;
     sim->speed = speed;
     sim->cfl = cfl;
@@ -101,7 +128,7 @@ void central2d_periodic(float* restrict u,
     int l = nx,   lg = 0;
     int r = ng,   rg = nx+ng;
     int b = ny*s, bg = 0;
-    int t = ng*s, tg = (nx+ng)*s;
+    int t = ng*s, tg = (ny+ng)*s;
 
     // Copy data into ghost cells on each side
     for (int k = 0; k < nfield; ++k) {
@@ -373,7 +400,8 @@ int central2d_xrun(float* restrict u, float* restrict v,
                    float* restrict g,
                    int nx, int ny, int ng,
                    int nfield, flux_t flux, speed_t speed,
-                   float tfinal, float dx, float dy, float cfl)
+                   float tfinal, float dx, float dy, float cfl,
+                   int batch)
 {
     int nstep = 0;
     int nx_all = nx + 2*ng;
@@ -389,7 +417,7 @@ int central2d_xrun(float* restrict u, float* restrict v,
             dt = (tfinal-t)/2;
             done = true;
         }
-        for (int i = 0; i < BATCH && t + 2*dt < tfinal; i++) {
+        for (int i = 0; i < batch && t + 2*dt < tfinal; i++) {
             central2d_step(u, v, scratch, f, g,
                            0, nx+4, ny+4, ng-2,
                            nfield, flux, speed,
@@ -406,11 +434,196 @@ int central2d_xrun(float* restrict u, float* restrict v,
 }
 
 
-int central2d_run(central2d_t* sim, float tfinal)
+static
+void central2d_batch_xrun(float* restrict u, float* restrict v,
+                   float* restrict scratch,
+                   float* restrict f,
+                   float* restrict g,
+                   int nx, int ny, int ng,
+                   int nfield, flux_t flux, speed_t speed,
+                   float tfinal, float dx, float dy, float cfl,
+                   int batch, int* nstep, float* t, bool* done)
+{
+    int nx_all = nx + 2*ng;
+    int ny_all = ny + 2*ng;
+
+    float cxy[2] = {1.0e-15f, 1.0e-15f};
+    speed(cxy, u, nx_all * ny_all, nx_all * ny_all);
+    float dt = cfl / fmaxf(cxy[0]/dx, cxy[1]/dy);
+    if (*t + 2*dt >= tfinal) {
+        dt = (tfinal-*t)/2;
+        *done = true;
+    }
+    for (int i = 0; i < batch && *t + 2*dt < tfinal; i++) {
+        central2d_step(u, v, scratch, f, g,
+                        0, nx+4, ny+4, ng-2,
+                        nfield, flux, speed,
+                        dt, dx, dy);
+        central2d_step(v, u, scratch, f, g,
+                        1, nx, ny, ng,
+                        nfield, flux, speed,
+                        dt, dx, dy);
+        *t += 2*dt;
+        *nstep += 2;
+    }
+}
+
+
+int central2d_run(central2d_t* sim, float tfinal, int batch)
 {
     return central2d_xrun(sim->u, sim->v, sim->scratch,
                           sim->f, sim->g,
                           sim->nx, sim->ny, sim->ng,
                           sim->nfield, sim->flux, sim->speed,
-                          tfinal, sim->dx, sim->dy, sim->cfl);
+                          tfinal, sim->dx, sim->dy, sim->cfl, batch);
+}
+
+void central2d_batch_run(central2d_t* sim, float tfinal, int batch,
+                        int* nstep, float* t, bool* done)
+{
+    central2d_batch_xrun(sim->u, sim->v, sim->scratch,
+                        sim->f, sim->g,
+                        sim->nx, sim->ny, sim->ng,
+                        sim->nfield, sim->flux, sim->speed,
+                        tfinal, sim->dx, sim->dy, sim->cfl, 
+                        batch, nstep, t, done);
+}
+
+
+// Subdomain partitioning
+inline
+int sub_start(int own_start, int ng)
+{
+    return (own_start < ng) ? 0 : own_start-ng;
+}
+
+inline
+int sub_end(int own_end, int ng, int n_all)
+{
+    return (own_end+ng > n_all) ? n_all : own_end+ng;
+}
+
+/**
+ * move one of the field data from sim_global into sim_local
+*/
+void sub_field_copyin(float* restrict field_local, float* restrict field_global, int nx, int ny, 
+                      int ng, int own_start_x, int own_end_x, int own_start_y, int own_end_y)
+{   
+    int nfield = 3;
+    int s_ny = nx + 2*ng;
+    int s_nx = ny + 2*ng;
+    int s_field = s_ny * s_nx;
+    int s_sub_ny = 2*ng + own_end_x - own_start_x;
+    int s_sub_nx = 2*ng + own_end_y - own_start_y;
+    int s_sub_field = s_sub_nx * s_sub_ny;
+
+    int dstart_x = sub_start(own_start_x, ng);
+    int dend_x = sub_end(own_end_x, ng, s_ny);
+    int dstart_y = sub_start(own_start_y, ng);
+    int dend_y = sub_end(own_end_y, ng, s_nx);
+
+    for (int n = 0; n < nfield; ++n)
+        for (int j = 0; j < s_sub_nx; ++j)
+            for (int i =0; i < s_sub_ny; ++i)
+                field_local[i + j*s_sub_ny + n*s_sub_field] = field_global[dstart_x+i + (dstart_y+j)*s_ny + n*s_field];
+}
+
+/**
+ *  move one of the field data from sim_local back into sim_global
+ */
+void sub_field_copyout(float* restrict field_local, float* restrict field_global, int nx, int ny, 
+                       int ng, int own_start_x, int own_end_x, int own_start_y, int own_end_y)
+{
+    int nfield = 3;
+    int s_ny = nx + 2*ng;
+    int s_nx = ny + 2*ng;
+    int s_field = s_ny * s_nx;
+
+    int dstart_x = sub_start(own_start_x, ng);
+    int dend_x = sub_end(own_end_x, ng, s_ny);
+    int dstart_y = sub_start(own_start_y, ng);
+    int dend_y = sub_end(own_end_y, ng, s_nx);
+
+    int s_sub_ny = dend_x - dstart_x;
+    int s_sub_nx = dend_y - dstart_y;
+    int s_sub_field = s_sub_nx * s_sub_ny;
+
+    for (int n = 0; n < nfield; ++n)
+        for (int j = 0; j < s_sub_nx; ++j)
+            for (int i =0; i < s_sub_ny; ++i)
+                field_global[own_start_x+i + (own_start_y+j)*s_ny + n*s_field] = \
+                field_local[i+own_start_x-dstart_x + (j+own_start_y-dstart_y)*s_sub_ny + n*s_sub_field];
+}
+                    
+/**
+ * move the range from `sub_start` to `sub_end` 
+ * of sim_global into a local copy (sim_local).
+ */
+void sub_copyin(central2d_t* restrict sim_local,
+                central2d_t* restrict sim_global,
+                int own_start_x, int own_end_x,
+                int own_start_y, int own_end_y)
+{   
+    sub_field_copyin(sim_local->u, sim_global->u, sim_global->nx, sim_global->ny, 
+                     sim_local->ng, own_start_x, own_end_x, own_start_y, own_end_y);
+    // sub_field_copyin(sim_local->v, sim_global->v, sim_global->nx, sim_global->ny, 
+    //                  sim_local->ng, own_start_x, own_end_x, own_start_y, own_end_y);
+    // sub_field_copyin(sim_local->f, sim_global->f, sim_global->nx, sim_global->ny, 
+    //                  sim_local->ng, own_start_x, own_end_x, own_start_y, own_end_y);
+    // sub_field_copyin(sim_local->g, sim_global->g, sim_global->nx, sim_global->ny, 
+    //                  sim_local->ng, own_start_x, own_end_x, own_start_y, own_end_y);
+}
+
+/**
+ *  moves the range corresponding to own_start to own_end 
+ *  (starting at offset own_start-sub_start) from sim_local 
+ *  back into sim_global.
+ */
+void sub_copyout(central2d_t* restrict sim_local,
+                 central2d_t* restrict sim_global,
+                 int own_start_x, int own_end_x,
+                 int own_start_y, int own_end_y)
+{
+    sub_field_copyout(sim_local->u, sim_global->u, sim_global->nx, sim_global->ny, 
+                     sim_local->ng, own_start_x, own_end_x, own_start_y, own_end_y);
+    // sub_field_copyout(sim_local->v, sim_global->v, sim_global->nx, sim_global->ny, 
+    //                  sim_local->ng, own_start_x, own_end_x, own_start_y, own_end_y);
+    // sub_field_copyout(sim_local->f, sim_global->f, sim_global->nx, sim_global->ny, 
+    //                  sim_local->ng, own_start_x, own_end_x, own_start_y, own_end_y);
+    // sub_field_copyout(sim_local->g, sim_global->g, sim_global->nx, sim_global->ny, 
+    //                  sim_local->ng, own_start_x, own_end_x, own_start_y, own_end_y);
+}
+
+/**
+ * The `central2d_sub_run` routine copies data into a local buffer, then advances
+ * that buffer by the given number of steps.
+ *
+ */
+void central2d_sub_run(central2d_t* restrict sim_local,
+              central2d_t* restrict sim_global,
+              int own_start_x, int own_end_x,
+              int own_start_y, int own_end_y,
+              float tfinal, int batch,
+              int* nstep, float* t, bool* done)
+{   
+    sub_copyin(sim_local, sim_global, own_start_x, own_end_x, own_start_y, own_end_y);
+    central2d_batch_run(sim_local, tfinal, batch, nstep, t, done);
+}
+
+/**
+ * The partitioner cuts the domain into pieces of size at most `NS_INNER`;
+ * partition `j` is indices `offsets[j] <= i < offsets[j+1]`.  We return
+ * the total number of partitions in the output argument `npart`; the
+ * offsets array has length `npart+1`.
+ *
+ */
+int* alloc_partition(int n, int ng, int block_n, int* npart)
+{
+    int np = (n + block_n-1)/block_n;
+    int* offsets = (int*) malloc((np+1) * sizeof(int));
+    for (int i = 0; i <= np; ++i) {
+        offsets[i] = (i * block_n > n) ? n + ng : i * block_n + ng;
+    }
+    *npart = np;
+    return offsets;
 }

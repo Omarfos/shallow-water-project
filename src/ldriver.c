@@ -187,6 +187,7 @@ int run_sim(lua_State* L)
     lua_pop(L, 9);
 
     int ng = 4 + 2 * (batch-1);
+    printf("ng = %d \n", ng);
     central2d_t* sim_global = central2d_init(w,h, nx,ny, 3, shallow2d_flux, 
                                       shallow2d_speed, cfl, ng);
     

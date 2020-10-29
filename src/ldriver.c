@@ -179,8 +179,8 @@ int run_sim(lua_State* L)
     double h     = luaL_optnumber(L, 3, w);
     double cfl   = luaL_optnumber(L, 4, 0.45);
     double ftime = luaL_optnumber(L, 5, 0.01);
-    int nx       = luaL_optinteger(L, 6, 200);
-    int ny       = luaL_optinteger(L, 7, nx);
+    int nx_global = luaL_optinteger(L, 6, 200);
+    int ny_global = luaL_optinteger(L, 7, nx_global);
     int vskip    = luaL_optinteger(L, 8, 1);
     int frames   = luaL_optinteger(L, 9, 50);
     int batch   = luaL_optinteger(L, 10, 1);
@@ -190,7 +190,7 @@ int run_sim(lua_State* L)
 
     int ng = 4 + 2 * (batch-1);
     printf("batch size = %d, block size = %d \n", batch, block_n);
-    central2d_t* sim_global = central2d_init(w,h, nx,ny, 3, shallow2d_flux, 
+    central2d_t* sim_global = central2d_init(w,h, nx_global, ny_global, 3, shallow2d_flux, 
                                       shallow2d_speed, cfl, ng);
     
     // Partition the x axis
@@ -223,7 +223,7 @@ int run_sim(lua_State* L)
     lua_init_sim(L, sim_global);
     central2d_periodic(sim_global->u, sim_global->nx, sim_global->ny, sim_global->ng, 3);
 
-    printf("%g %g %d %d %g %d %g\n", w, h, nx, ny, cfl, frames, ftime);
+    printf("%g %g %d %d %g %d %g\n", w, h, nx_global, ny_global, cfl, frames, ftime);
     FILE* viz = viz_open(fname, sim_global, vskip);
     solution_check(sim_global);
     viz_frame(viz, sim_global, vskip);

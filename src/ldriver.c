@@ -18,7 +18,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include <mpi.h>
+//#include <mpi.h>
 
 //ldoc on
 /**
@@ -326,19 +326,19 @@ int main(int argc, char** argv)
     }
     lua_setglobal(L, "args");
 
-    MPI_Init(&argc, &argv);
+    //MPI_Init(&argc, &argv);
 
     // Get number of processes
-    int world_size;
-    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+    //int world_size;
+    //MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
-    printf("MPI worldsize: %d\n", world_size);
+    //printf("MPI worldsize: %d\n", world_size);
 
     if (luaL_dofile(L, argv[1]))
         printf("%s\n", lua_tostring(L,-1));
 
     // Finalize MPI environment.
-    MPI_Finalize();
+    //MPI_Finalize();
 
     lua_close(L);
     return 0;

@@ -3,10 +3,12 @@ numnode = 7
 strongscriptdir = 'strong/'
 weakscriptdir = 'weak/'
 blockscriptdir = 'block/'
+mpiscriptdir = 'mpi/'
 strongresultdir = 'results/baseline/strong/'
 weakresultdir = 'results/baseline/weak/'
 blockresultdir = 'results/block/baseline/'
 blocktuneresultdir = 'results/block/tune/'
+mpiresultdir = 'results/mpi/'
 mydir = '$HOME/projects/CS5220/shallow-water-project'
 
 # # generate strong scaling .sub files
@@ -81,31 +83,53 @@ mydir = '$HOME/projects/CS5220/shallow-water-project'
 #     f.write('src/lshallow tests.lua dam ' + str(grid[i]) + '\n')
 #     f.write('\n')
 
-# generate tuning scripts
-# generate tuning scripts
-grid = [400, 800, 1600]
-batch = [2, 4, 6, 8]
-block = [32, 64, 128, 256]
-for i in range(0, len(grid)):
-    for j in range(0, len(block)):
-        for k in range(0, len(batch)):
-            filename = blockscriptdir + "grid"+str(grid[i])+"_block"+str(block[j])+"_batch"+str(batch[k])+".sub"
-            f = open(filename, "w+")
-            f.write('#!/bin/bash\n')
-            f.write('#SBATCH -J shallow\n')
-            f.write('#SBATCH -o '+ blocktuneresultdir + 'grid'+str(grid[i])+'_block'+str(block[j])+'_batch'+str(batch[k])+'.out\n')
-            f.write('#SBATCH -e '+ blocktuneresultdir + 'grid'+str(grid[i])+'_block'+str(block[j])+'_batch'+str(batch[k])+'.err\n')
-            f.write('#SBATCH --nodes=1 \n')
-            f.write('#SBATCH --ntasks=1 \n')
-            f.write('#SBATCH --tasks-per-node=1 \n')
-            f.write('#SBATCH --cpus-per-task=1 \n')
-            f.write('#SBATCH --get-user-env \n')
-            f.write('#SBATCH -t 00:10:00 \n')
-            f.write('#SBATCH --mem-per-cpu=1000 \n')
-            f.write('#SBATCH --partition=cs5220 \n')
-            f.write('\n')
-            f.write('source /etc/profile.d/modules.sh \n')
-            f.write('#module load openmpi-4.0.0 \n')
-            f.write('cd ' + mydir + ' \n')
-            f.write('src/lshallow tests.lua dam ' + str(grid[i]) + ' ' + str(batch[k]) + ' ' + str(block[j]) + '\n')
-            f.write('\n')
+# # generate tuning scripts
+# # generate tuning scripts
+# grid = [400, 800, 1600]
+# batch = [2, 4, 6, 8]
+# block = [32, 64, 128, 256]
+# for i in range(0, len(grid)):
+#     for j in range(0, len(block)):
+#         for k in range(0, len(batch)):
+#             filename = blockscriptdir + "grid"+str(grid[i])+"_block"+str(block[j])+"_batch"+str(batch[k])+".sub"
+#             f = open(filename, "w+")
+#             f.write('#!/bin/bash\n')
+#             f.write('#SBATCH -J shallow\n')
+#             f.write('#SBATCH -o '+ blocktuneresultdir + 'grid'+str(grid[i])+'_block'+str(block[j])+'_batch'+str(batch[k])+'.out\n')
+#             f.write('#SBATCH -e '+ blocktuneresultdir + 'grid'+str(grid[i])+'_block'+str(block[j])+'_batch'+str(batch[k])+'.err\n')
+#             f.write('#SBATCH --nodes=1 \n')
+#             f.write('#SBATCH --ntasks=1 \n')
+#             f.write('#SBATCH --tasks-per-node=1 \n')
+#             f.write('#SBATCH --cpus-per-task=1 \n')
+#             f.write('#SBATCH --get-user-env \n')
+#             f.write('#SBATCH -t 00:10:00 \n')
+#             f.write('#SBATCH --mem-per-cpu=1000 \n')
+#             f.write('#SBATCH --partition=cs5220 \n')
+#             f.write('\n')
+#             f.write('source /etc/profile.d/modules.sh \n')
+#             f.write('#module load openmpi-4.0.0 \n')
+#             f.write('cd ' + mydir + ' \n')
+#             f.write('src/lshallow tests.lua dam ' + str(grid[i]) + ' ' + str(batch[k]) + ' ' + str(block[j]) + '\n')
+#             f.write('\n')
+
+# generate mpi test .sub file
+filename = mpiscriptdir + "shallow_mpi.sub"
+f = open(filename, "w+")
+f.write('#!/bin/bash\n')
+f.write('#SBATCH -J shallow\n')
+f.write('#SBATCH -o '+ mpiresultdir + 'shallow_mpi.out\n')
+f.write('#SBATCH -e '+ mpiresultdir + 'shallow__mpi.err\n')
+f.write('#SBATCH --nodes=2 \n')
+f.write('#SBATCH --ntasks=2 \n')
+f.write('#SBATCH --tasks-per-node=1 \n')
+f.write('#SBATCH --cpus-per-task=1 \n')
+f.write('#SBATCH --get-user-env \n')
+f.write('#SBATCH -t 00:10:00 \n')
+f.write('#SBATCH --mem-per-cpu=1000 \n')
+f.write('#SBATCH --partition=cs5220 \n')
+f.write('\n')
+f.write('source /etc/profile.d/modules.sh \n')
+f.write('#module load openmpi-4.0.0 \n')
+f.write('cd ' + mydir + ' \n')
+f.write('src/lshallow tests.lua dam 100 \n')
+f.write('\n')

@@ -1,9 +1,11 @@
 # C compiler and flags
-CC=gcc
+#CC=gcc
+CC = mpicc
 CFLAGS=-std=c99 -g
 
 # C++ compiler and flags
-CXX=g++
+#CXX=g++
+CXX = mpic++
 CXXFLAGS=-std=c++14 -g
 
 # CUDA compiler and flags

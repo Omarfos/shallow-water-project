@@ -160,6 +160,13 @@ void lua_init_sim(lua_State* L, central2d_t* sim)
 
 int run_sim(lua_State* L)
 {
+  // Get rank of the process
+  int world_rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+  
+  printf("MPI worldrank: %d\n", world_rank);
+
+    
     int n = lua_gettop(L);
     if (n != 1 || !lua_istable(L, 1))
         luaL_error(L, "Argument must be a table");
@@ -210,17 +217,70 @@ int run_sim(lua_State* L)
         printf("%d, ", offsets_y[i]);
     printf("\n");
 
-    // Set up storage for subdomains
-    int nx, ny;
-    central2d_t** sim_local_all = (central2d_t**) malloc(npartx * nparty * sizeof(central2d_t*));
-    for (int j = 0; j < nparty; ++j)
-        for (int i = 0; i < npartx; ++i){
-            nx = offsets_x[i+1] - offsets_x[i];
-            ny = offsets_y[j+1] - offsets_y[j];
-            sim_local_all[i + j*npartx] = central2d_sub_init(sim_global->dx, sim_global->dy, nx, ny, 3, 
-                                          shallow2d_flux, shallow2d_speed, cfl, ng);
-        }
+    /* // Set up storage for subdomains */
+    /* int nx, ny; */
+    /* central2d_t** sim_local_all = (central2d_t**) malloc(npartx * nparty * sizeof(central2d_t*)); */
+    /* for (int j = 0; j < nparty; ++j) */
+    /*     for (int i = 0; i < npartx; ++i){ */
+    /*         nx = offsets_x[i+1] - offsets_x[i]; */
+    /*         ny = offsets_y[j+1] - offsets_y[j]; */
+    /*         sim_local_all[i + j*npartx] = central2d_sub_init(sim_global->dx, sim_global->dy, nx, ny, 3,  */
+    /*                                       shallow2d_flux, shallow2d_speed, cfl, ng); */
+    /*     } */
 
+    // all blocks of u matrices [0] [2]
+    //                          [1] [3]
+    int blockuindex[npartx*nparty];
+    int blockunum[npartx*nparty];
+    int elindex = 0;
+    float* sim_u_all;
+    int maxel = 0;
+    int nx, ny;
+    if (world_rank==0){
+      blockuindex[0] = elindex;
+      for (int j = 0; j < nparty; ++j){
+	for (int i = 0; i < npartx; ++i){
+	  nx = offsets_x[i+1] - offsets_x[i];
+	  ny = offsets_y[j+1] - offsets_y[j];
+
+	  int nx_all = nx + 2*ng;
+	  int ny_all = ny + 2*ng;
+	  int nc = nx_all * ny_all;
+	  int N  = sim_global->nfield * nc;
+	  int blockindex = i + j*npartx;
+	  int curel = 4*N + 6*nx_all;
+	  maxel = (maxel>curel)? maxel : curel;
+	  elindex += curel;
+	  if (blockindex<npartx*nparty-1)
+	    blockuindex[blockindex+1] = elindex;
+	  blockunum[blockindex] = curel;
+	}
+      }
+      // root process creates a matrix to store all the u elements
+      sim_u_all = malloc(elindex * sizeof(float));
+    }else
+      sim_u_all = NULL;
+    int done_block[npartx*nparty];
+    memset(done_block, false, npartx*nparty*sizeof(bool));
+    
+    central2d_t* sim_local;
+    int blocki, blockj;
+    if (world_rank==0){
+      blocki = 0; blockj = 0;
+    }else if (world_rank==1){
+      blocki = 0; blockj = 1;
+    }else if (world_rank==2){
+      blocki = 1; blockj = 0;
+    }else if (world_rank==3){
+      blocki = 1; blockj = 1;
+    }
+      
+    // Set up storage for subdomains
+    nx = offsets_x[blocki+1] - offsets_x[blocki];
+    ny = offsets_y[blockj+1] - offsets_y[blockj];
+    sim_local = central2d_sub_init(sim_global->dx, sim_global->dy, nx, ny, 3, 
+						  shallow2d_flux, shallow2d_speed, cfl, ng);
+    
     // Initial and periodic boundary condition of sig_global
     lua_init_sim(L, sim_global);
     central2d_periodic(sim_global->u, sim_global->nx, sim_global->ny, sim_global->ng, 3);
@@ -235,40 +295,75 @@ int run_sim(lua_State* L)
 #ifdef _OPENMP
         double t0 = omp_get_wtime();
 
-        // Initial nstep and t arrays of all subdomains
+        // Initial nstep and t arrays of all subdomains (on all processes)
         int nstep[npartx*nparty];
         float t[npartx*nparty];
-        bool done[npartx*nparty];
+        bool done;
         memset(nstep, 0, npartx*nparty*sizeof(int));
         memset(t, 0.0, npartx*nparty*sizeof(float));
-        memset(done, false, npartx*nparty*sizeof(bool));
 
         bool done_all = false;
 
         // Run
         while (!done_all){
-            done_all = true;
-            // copy sim_global to sim_local and run one batch time
-            for (int j = 0; j < nparty; ++j)
-                for (int i = 0; i < npartx; ++i){
-                    if (!done[i + j*npartx]) done_all = false;
-                    central2d_sub_run(sim_local_all[i + j*npartx], sim_global,
-                            offsets_x[i], offsets_x[i+1],
-                            offsets_y[j], offsets_y[j+1],
-                            ftime, batch, &nstep[i + j*npartx], 
-                            &t[i + j*npartx], &done[i + j*npartx]);
-                }
+	  done_all = true;
+	  // hard code subdomain for now, all processes do stepping
+	  // copy sim_global to sim_local and run one batch time
+	  central2d_sub_run(sim_local, sim_global,
+			    offsets_x[blocki], offsets_x[blocki+1],
+			    offsets_y[blockj], offsets_y[blockj+1],
+			    ftime, batch, &nstep[blocki + blockj*npartx], 
+			    &t[blocki + blockj*npartx], &done);
+	  if (done_all)
+	    printf("done_all!");
+	  else
+	    printf("not done all!");
+	  
+	  // now every process's sim_local is different	    
+	  // sync all processes here
+	  // root process gather sim_local->u into sim_u_all
+	  /* int MPI_Gatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype, */
+	  /* 		  void *recvbuf, const int *recvcounts, const int *displs, */
+	  /* 		  MPI_Datatype recvtype, int root, MPI_Comm comm) */
+	  MPI_Gatherv(sim_local->u, maxel, MPI_FLOAT, sim_u_all, blockunum, blockuindex, MPI_FLOAT,
+		      0, MPI_COMM_WORLD);
+	  // root process gather each done into done block
+	  /* int MPI_Gather(const void *sendbuf, int sendcount, MPI_Datatype sendtype, */
+	  /* 		 void *recvbuf, int recvcount, MPI_Datatype recvtype, int root, MPI_Comm comm) */
+	  MPI_Gather(&done_all, 1, MPI_C_BOOL, done_block, 1, MPI_C_BOOL, 0, MPI_COMM_WORLD);
+	  
+	  // check if is all done
+	  if (world_rank==0){
+	    for (int index = 0; index < npartx*nparty; ++index){
+	      if (done_block[index] == false)
+		done_all = false;
+	    }
 
-            // copy sim_locals back to sim_global (nan error here)
-            for (int j = 0; j < nparty; ++j)
-                for (int i = 0; i < npartx; ++i){
-                    sub_copyout(sim_local_all[i + j*npartx], sim_global,
-                            offsets_x[i], offsets_x[i+1],
-                            offsets_y[j], offsets_y[j+1]);
-                }
+	    /*   // root process copy sim_u_all into sim_global->u */
+	    /*   // later optimize this part to get around this copying */
+	    /*   // perform periodic copying directly on sim_all_u */
+	    /*   sub_copyout(sim_local_all[i + j*npartx], sim_global, */
+	    /* 		  offsets_x[i], offsets_x[i+1], */
+	    /* 		  offsets_y[j], offsets_y[j+1]); */
+	    
+	    /*   // root process does periodic condition calculation */
+	    /*   central2d_periodic(sim_global->u, sim_global->nx, sim_global->ny, sim_global->ng, 3); */
+	    /*   // copy sim_global-> to sim_u_all */
+	    
+	    
+    
 
-            // Boundary condition
-            central2d_periodic(sim_global->u, sim_global->nx, sim_global->ny, sim_global->ng, 3);
+	  }
+	  // broadcast done_all to all processes
+	  //int MPI_Bcast(void *buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm)	    
+	  MPI_Bcast(&done_all, 1, MPI_C_BOOL, 0, MPI_COMM_WORLD);	   
+
+	  // scatter sim_u_all back to sim_local-> on each process
+	  /* int MPI_Scatterv(const void *sendbuf, const int *sendcounts, const int *displs, */
+	  /* 		   MPI_Datatype sendtype, void *recvbuf, int recvcount, */
+	  /* 		   MPI_Datatype recvtype, int root, MPI_Comm comm) */
+	  MPI_Scatterv(sim_u_all, blockunum, blockuindex, MPI_FLOAT, sim_local->u, maxel, MPI_FLOAT, 0, MPI_COMM_WORLD); 
+	    
         }
 
         double t1 = omp_get_wtime();
@@ -283,10 +378,13 @@ int run_sim(lua_State* L)
         int nstep = central2d_run(sim_global, ftime, batch);
         double elapsed = 0;
 #endif
-        solution_check(sim_global);
-        tcompute += elapsed;
-        printf("  Time: %e (%e for %d steps)\n", elapsed, elapsed/nstep[0], nstep[0]);
-        viz_frame(viz, sim_global, vskip);
+	// only the root process gets to do solution check and write frame
+	if (world_rank==0){
+	  solution_check(sim_global);
+	  tcompute += elapsed;
+	  printf("  Time: %e (%e for %d steps)\n", elapsed, elapsed/nstep[0], nstep[0]);
+	  viz_frame(viz, sim_global, vskip);
+	}
     }
     printf("Total compute time: %e\n", tcompute);
 
@@ -328,17 +426,19 @@ int main(int argc, char** argv)
     }
     lua_setglobal(L, "args");
 
-    // Get number of processes
-    int world_size;
-    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
-
-    printf("MPI worldsize: %d\n", world_size);
 
     // Get rank of the process
     int world_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
-    printf("MPI worldrank: %d\n", world_rank);
+    // root processes print number of processes
+    if (world_rank==0){
+      // Get number of processes
+      int world_size;
+      MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+      
+      printf("MPI worldsize: %d\n", world_size);
+    }    
 
     if (luaL_dofile(L, argv[1]))
         printf("%s\n", lua_tostring(L,-1));

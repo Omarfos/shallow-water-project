@@ -18,7 +18,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
-//#include <mpi.h>
+#include <mpi.h>
 
 //ldoc on
 /**
@@ -310,8 +310,10 @@ int run_sim(lua_State* L)
 
 int main(int argc, char** argv)
 {
+    MPI_Init(&argc, &argv);
     if (argc < 2) {
         fprintf(stderr, "Usage: %s fname args\n", argv[0]);
+	MPI_Finalize();
         return -1;
     }
 
@@ -326,19 +328,23 @@ int main(int argc, char** argv)
     }
     lua_setglobal(L, "args");
 
-    //MPI_Init(&argc, &argv);
-
     // Get number of processes
-    //int world_size;
-    //MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+    int world_size;
+    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
-    //printf("MPI worldsize: %d\n", world_size);
+    printf("MPI worldsize: %d\n", world_size);
+
+    // Get rank of the process
+    int world_rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+
+    printf("MPI worldrank: %d\n", world_rank);
 
     if (luaL_dofile(L, argv[1]))
         printf("%s\n", lua_tostring(L,-1));
 
     // Finalize MPI environment.
-    //MPI_Finalize();
+    MPI_Finalize();
 
     lua_close(L);
     return 0;

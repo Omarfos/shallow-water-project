@@ -281,9 +281,9 @@ int run_sim(lua_State* L)
     if (world_rank==0){
       blocki = 0; blockj = 0;
     }else if (world_rank==1){
-      blocki = 0; blockj = 1;
-    }else if (world_rank==2){
       blocki = 1; blockj = 0;
+    }else if (world_rank==2){
+      blocki = 0; blockj = 1;
     }else if (world_rank==3){
       blocki = 1; blockj = 1;
     }

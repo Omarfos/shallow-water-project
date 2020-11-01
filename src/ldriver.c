@@ -298,6 +298,10 @@ int run_sim(lua_State* L)
     lua_init_sim(L, sim_global);
     central2d_periodic(sim_global->u, sim_global->nx, sim_global->ny, sim_global->ng, 3);
 
+    sub_copyin(sim_local, sim_global, offsets_x[blocki], offsets_x[blocki+1],
+	       offsets_y[blockj], offsets_y[blockj+1]);
+
+
     if (world_rank==0)
       printf("%g %g %d %d %g %d %g\n", w, h, nx_global, ny_global, cfl, frames, ftime);
     FILE* viz = viz_open(fname, sim_global, vskip);
@@ -324,11 +328,7 @@ int run_sim(lua_State* L)
 
 	  // hard code subdomain for now, all processes do stepping
 	  // copy sim_global to sim_local and run one batch time
-	  central2d_sub_run(sim_local, sim_global,
-			    offsets_x[blocki], offsets_x[blocki+1],
-			    offsets_y[blockj], offsets_y[blockj+1],
-			    ftime, batch, &nstep[blocki + npartx * blockj], 
-			    &t[blocki + npartx * blockj], &done);
+	  central2d_batch_run(sim_local, ftime, batch, &nstep[blocki + npartx * blockj], &t[blocki + npartx * blockj], &done);
 
 	  // now every process's sim_local is different
 	  // sync all processes here

@@ -126,6 +126,12 @@ void sub_copyout(central2d_t* restrict sim_local,
                  int own_start_x, int own_end_x,
                  int own_start_y, int own_end_y);
 
+void sub_field_copyin(float* restrict field_local, float* restrict field_global, int nx, int ny,
+		      int ng, int own_start_x, int own_end_x, int own_start_y, int own_end_y);
+
+void sub_field_copyout(float* restrict field_local, float* restrict field_global, int nx, int ny,
+		       int ng, int own_start_x, int own_end_x, int own_start_y, int own_end_y);
+
 void central2d_sub_run(central2d_t* restrict sim_local,
               central2d_t* restrict sim_global,
               int own_start_x, int own_end_x,

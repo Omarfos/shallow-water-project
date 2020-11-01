@@ -198,7 +198,7 @@ int run_sim(lua_State* L)
     lua_pop(L, 9);
 
     int ng = 4 + 2 * (batch-1);
-    //printf("batch size = %d, block size = %d \n", batch, block_n);
+    printf("batch size = %d, block size = %d \n", batch, block_n);
     central2d_t* sim_global = central2d_init(w,h, nx_global, ny_global, 3, shallow2d_flux, 
                                       shallow2d_speed, cfl, ng);
     
@@ -354,6 +354,7 @@ int run_sim(lua_State* L)
 	    // root process does periodic condition calculation
 	    central2d_periodic(sim_global->u, sim_global->nx, sim_global->ny, sim_global->ng, 3);
 	    // copy sim_global-> to sim_u_all
+	    // later optimize this part to get around this copying
 	    for(int blockindexj = 0; blockindexj < nparty; ++blockindexj){
 	      for (int blockindexi = 0; blockindexi < npartx; ++blockindexi){
 	    	sub_field_copyin(sim_u_all + blockuindex[blockindexi + npartx * blockindexj], sim_global->u, nx_global, ny_global,

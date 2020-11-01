@@ -164,10 +164,19 @@ int run_sim(lua_State* L)
   // Get rank of the process
   int world_rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-  
   printf("MPI worldrank: %d\n", world_rank);
 
-    
+  int world_size;
+  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+  // root processes print number of processes
+  if (world_rank==0){
+    // Get number of processes      
+    printf("MPI worldsize: %d\n", world_size);
+  };
+
+  if (world_size==1)
+    run_sim_old(L);
+  else{    
     int n = lua_gettop(L);
     if (n != 1 || !lua_istable(L, 1))
         luaL_error(L, "Argument must be a table");
@@ -198,25 +207,30 @@ int run_sim(lua_State* L)
     lua_pop(L, 9);
 
     int ng = 4 + 2 * (batch-1);
-    printf("batch size = %d, block size = %d \n", batch, block_n);
     central2d_t* sim_global = central2d_init(w,h, nx_global, ny_global, 3, shallow2d_flux, 
-                                      shallow2d_speed, cfl, ng);
+					     shallow2d_speed, cfl, ng);
     
     // Partition the x axis
     int npartx;
-    int* offsets_x = alloc_partition(sim_global->nx, sim_global->ng, block_n, &npartx);
-    printf("offsets_x: \n");
-    for (int i = 0; i <= npartx; ++i)
-        printf("%d, ", offsets_x[i]);
-    printf("\n");
+    int* offsets_x = alloc_partition(sim_global->nx, sim_global->ng, block_n, &npartx);    
 
     // Partition the y axis
     int nparty;
     int* offsets_y = alloc_partition(sim_global->ny, sim_global->ng, block_n, &nparty);
-    printf("offsets_y: \n");
-    for (int i = 0; i <= nparty; ++i)
+
+    if (world_rank==0){
+      printf("batch size = %d, block size = %d \n", batch, block_n);
+      printf("offsets_x: \n");
+      for (int i = 0; i <= npartx; ++i)
+        printf("%d, ", offsets_x[i]);
+      printf("\n");
+      
+      printf("offsets_y: \n");
+      for (int i = 0; i <= nparty; ++i)
         printf("%d, ", offsets_y[i]);
-    printf("\n");
+      printf("\n");
+    }
+
 
     // set up sim_u_all to collect all u blocks from all processes
     // also set up relevant index info
@@ -402,6 +416,7 @@ int run_sim(lua_State* L)
     viz_close(viz);
     central2d_free(sim_global);
     return 0;
+  }
 }
 
 /**
@@ -581,22 +596,7 @@ int main(int argc, char** argv)
     lua_State* L = luaL_newstate();
     luaL_openlibs(L);
 
-    // Get rank of the process
-    int world_rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-
-    int world_size;    
-    // root processes print number of processes
-    if (world_rank==0){
-      // Get number of processes
-      MPI_Comm_size(MPI_COMM_WORLD, &world_size);
-      printf("MPI worldsize: %d\n", world_size);
-    }
-
-    if (world_size>1)
-      lua_register(L, "simulate", run_sim);
-    else
-      lua_register(L, "simulate", run_sim_old);
+    lua_register(L, "simulate", run_sim);
 
     lua_newtable(L);
     for (int i = 2; i < argc; ++i) {
@@ -604,8 +604,6 @@ int main(int argc, char** argv)
         lua_rawseti(L, 1, i-1);
     }
     lua_setglobal(L, "args");
-
-
     
 
     if (luaL_dofile(L, argv[1]))

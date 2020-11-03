@@ -6,6 +6,7 @@
 #include <math.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <mpi.h>
 
 //ldoc on
 /**
@@ -87,6 +88,14 @@ int central2d_offset(central2d_t* sim, int k, int ix, int iy)
     return (k*ny_all+(ng+iy))*nx_all+(ng+ix);
 }
 
+int central2d_mpi_offset(central2d_mpi_t* sim, int k, int ix, int iy)
+{
+    int nx = sim->nx, ny = sim->ny, ng = sim->ng;
+    int nx_all = nx + 2*ng;
+    int ny_all = ny + 2*ng;
+    return (k*ny_all+(ng+iy))*nx_all+(ng+ix);
+}
+
 
 /**
  * ### Boundary conditions
@@ -135,7 +144,7 @@ void central2d_periodic(float* restrict u,
         copy_subgrid(uk+bg, uk+b, nx+2*ng, ng, s);
     }
 }
-
+ 
 
 /**
  * ### Derivatives with limiters
@@ -480,6 +489,17 @@ void central2d_batch_run(central2d_t* sim, float tfinal, int batch,
                         batch, nstep, t, done);
 }
 
+void central2d_mpi_batch_run(central2d_mpi_t* sim, float tfinal, int batch,
+                        int* nstep, float* t, bool* done)
+{
+    central2d_batch_xrun(sim->u, sim->v, sim->scratch,
+                        sim->f, sim->g,
+                        sim->nx, sim->ny, sim->ng,
+                        sim->nfield, sim->flux, sim->speed,
+                        tfinal, sim->dx, sim->dy, sim->cfl, 
+                        batch, nstep, t, done);
+}
+
 
 // Subdomain partitioning
 inline
@@ -565,6 +585,15 @@ void sub_copyin(central2d_t* restrict sim_local,
     //                  sim_local->ng, own_start_x, own_end_x, own_start_y, own_end_y);
 }
 
+void sub_mpi_copyin(central2d_mpi_t* restrict sim_local,
+                    central2d_t* restrict sim_global,
+                    int own_start_x, int own_end_x,
+                    int own_start_y, int own_end_y)
+{   
+    sub_field_copyin(sim_local->u, sim_global->u, sim_global->nx, sim_global->ny, 
+                     sim_local->ng, own_start_x, own_end_x, own_start_y, own_end_y);
+}
+
 /**
  *  moves the range corresponding to own_start to own_end 
  *  (starting at offset own_start-sub_start) from sim_local 
@@ -583,6 +612,15 @@ void sub_copyout(central2d_t* restrict sim_local,
     //                  sim_local->ng, own_start_x, own_end_x, own_start_y, own_end_y);
     // sub_field_copyout(sim_local->g, sim_global->g, sim_global->nx, sim_global->ny, 
     //                  sim_local->ng, own_start_x, own_end_x, own_start_y, own_end_y);
+}
+
+void sub_mpi_copyout(central2d_mpi_t* restrict sim_local,
+                     central2d_t* restrict sim_global,
+                     int own_start_x, int own_end_x,
+                     int own_start_y, int own_end_y)
+{
+    sub_field_copyout(sim_local->u, sim_global->u, sim_global->nx, sim_global->ny, 
+                     sim_local->ng, own_start_x, own_end_x, own_start_y, own_end_y);
 }
 
 /**
@@ -617,4 +655,258 @@ int* alloc_partition(int n, int ng, int block_n, int* npart)
     }
     *npart = np;
     return offsets;
+}
+
+// Helper function: check an allocation and clear the space
+void* clear_malloc(size_t len)
+{
+    void* data = malloc(len);
+    assert(data != NULL);
+    return memset(data, 0, len);
+}
+
+// Initialize an a2a_sim_t data structure
+central2d_mpi_t* central2d_mpi_init(float dx, float dy, int nfield, 
+                        flux_t flux, speed_t speed, float cfl, int ng, 
+                        int* offsets_x, int* offsets_y,
+                        int npartx, int nparty)
+{
+    central2d_mpi_t* sim = (central2d_mpi_t*) malloc(sizeof(central2d_mpi_t));
+
+    // Get size and rank info from communicator
+    int nproc;
+    int rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &nproc);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    sim->nproc = nproc;
+    sim->rank  = rank;
+
+    // Set up offsets array
+    sim->offsets_x = offsets_x;
+    sim->offsets_y = offsets_y;
+    sim->npartx = npartx;
+    sim->nparty = nparty;
+    sim->blocki = sim->rank % npartx;
+    sim->blockj = sim->rank / npartx;
+    sim->max_count_buffer = (offsets_x[1]-offsets_x[0] > offsets_y[1]-offsets_y[0]) ? \
+                            (offsets_x[1]-offsets_x[0] + 2*ng) * ng * 3 : (offsets_y[1]-offsets_y[0] + 2*ng) * ng * 3;
+
+    // Set fields and allocate data
+    sim->nx = offsets_x[sim->blocki + 1] - offsets_x[sim->blocki];
+    sim->ny = offsets_y[sim->blockj + 1] - offsets_y[sim->blockj];
+    sim->ng = ng;
+    sim->nfield = nfield;
+    sim->dx = dx;
+    sim->dy = dy;
+    sim->flux = flux;
+    sim->speed = speed;
+    sim->cfl = cfl;
+
+    int nx_all = sim->nx + 2*ng;
+    int ny_all = sim->ny + 2*ng;
+    int nc = nx_all * ny_all;
+    int N  = nfield * nc;
+    sim->u  = (float*) malloc((4*N + 6*nx_all)* sizeof(float));
+    sim->v  = sim->u +   N;
+    sim->f  = sim->u + 2*N;
+    sim->g  = sim->u + 3*N;
+    sim->scratch = sim->u + 4*N;
+
+    // Set fields and allocate data
+    sim->sendbuf_u_l = (float*) clear_malloc(sim->max_count_buffer * sizeof(float));
+    sim->sendbuf_u_r = (float*) clear_malloc(sim->max_count_buffer * sizeof(float));
+    sim->sendbuf_u_b = (float*) clear_malloc(sim->max_count_buffer * sizeof(float));
+    sim->sendbuf_u_t = (float*) clear_malloc(sim->max_count_buffer * sizeof(float));
+
+    sim->recvbuf_u_l = (float*) clear_malloc(sim->max_count_buffer * sizeof(float));
+    sim->recvbuf_u_r = (float*) clear_malloc(sim->max_count_buffer * sizeof(float));
+    sim->recvbuf_u_b = (float*) clear_malloc(sim->max_count_buffer * sizeof(float));
+    sim->recvbuf_u_t = (float*) clear_malloc(sim->max_count_buffer * sizeof(float));
+
+    return sim;
+}
+
+void central2d_mpi_free(central2d_mpi_t* sim)
+{
+    free(sim->u);
+
+    free(sim->sendbuf_u_l);
+    free(sim->sendbuf_u_r);
+    free(sim->sendbuf_u_b);
+    free(sim->sendbuf_u_t);
+
+    free(sim->recvbuf_u_l);
+    free(sim->recvbuf_u_r);
+    free(sim->recvbuf_u_b);
+    free(sim->recvbuf_u_t);
+}
+
+// copy data to send buffers
+static 
+void copy_to_sendbufs(central2d_mpi_t* sim, int phase)
+{   
+    int stride_n = (2*sim->ng + sim->nx) * (2*sim->ng + sim->ny);
+    int stride_y = 2*sim->ng + sim->nx;
+
+    if (phase == 0){
+        int stride_n_buffer, j_sim, i_sim_l, i_sim_r;
+        stride_n_buffer = sim->ng * sim->ny;
+        for (int n = 0; n < sim->nfield; ++n)
+            for (int j = 0; j < sim->ny; ++j){
+                j_sim = j + sim->ng;
+                for (int i = 0; i < sim->ng; ++i){
+                    i_sim_l = i + sim->ng;
+                    i_sim_r = i + sim->nx;
+                    sim->sendbuf_u_l[n*stride_n_buffer + j*sim->ng + i] = \
+                    sim->u[n*stride_n + j_sim*stride_y + i_sim_l];
+                    sim->sendbuf_u_r[n*stride_n_buffer + j*sim->ng + i] = \
+                    sim->u[n*stride_n + j_sim*stride_y + i_sim_r];
+                }
+            }
+    }
+    else if (phase == 1){
+        int stride_n_buffer, stride_j_buffer, j_sim_b, j_sim_t, i_sim;
+        stride_n_buffer = sim->ng * (sim->nx + 2*sim->ng);
+        stride_j_buffer = sim->nx + 2*sim->ng;
+        for (int n = 0; n < sim->nfield; ++n)
+            for (int j = 0; j < sim->ng; ++j){
+                j_sim_b = j + sim->ny;
+                j_sim_t = j + sim->ng;
+                for (int i = 0; i < sim->nx + 2*sim->ng; ++i){
+                    i_sim = i;
+                    sim->sendbuf_u_b[n*stride_n_buffer + j*stride_j_buffer + i] = \
+                    sim->u[n*stride_n + j_sim_b*stride_y + i_sim];
+                    sim->sendbuf_u_t[n*stride_n_buffer + j*stride_j_buffer + i] = \
+                    sim->u[n*stride_n + j_sim_t*stride_y + i_sim];
+                }
+            }
+    }
+
+    // printf("copy_to_sendbufs \n");
+}
+
+/**
+ * Copy data into send butters and start the send/receive pair,
+ * then wait on message completions and copy data out of the recv buffer.
+ * in phase=0, do left&right memcopy and start send/recieve
+ * in phase=1, do up&down memcopy and start send/recieve
+*/
+void sub_start_sendrecv(central2d_mpi_t* sim, int phase)
+{   
+    int prev, next;
+    // Previous and next processors to send data
+    if (phase == 0){
+        prev = (sim->blocki + sim->npartx - 1) % sim->npartx + sim->blockj * sim->npartx;
+        next = (sim->blocki + 1) % sim->npartx + sim->blockj * sim->npartx;
+        // printf("phase: %d, rank: %d, prev: %d, next: %d, ", phase, sim->rank, prev, next);
+    }
+    else if (phase == 1){
+        prev = (sim->blockj + sim->nparty - 1) % sim->nparty * sim->npartx + sim->blocki;
+        next = (sim->blockj + 1) % sim->nparty * sim->npartx + sim->blocki;
+        // printf("phase: %d, rank: %d, prev: %d, next: %d, ", phase, sim->rank, prev, next);
+    }
+
+    // Copy current u into send buffers
+    copy_to_sendbufs(sim, phase);
+
+    if (phase == 0){
+        // Start nonblocking send/recieve along x axis
+        MPI_Isend(sim->sendbuf_u_l, sim->max_count_buffer, MPI_FLOAT, prev, phase,
+                MPI_COMM_WORLD, sim->req+0);
+
+        MPI_Isend(sim->sendbuf_u_r, sim->max_count_buffer, MPI_FLOAT, next, phase,
+                MPI_COMM_WORLD, sim->req+1);
+
+        MPI_Irecv(sim->recvbuf_u_l, sim->max_count_buffer, MPI_FLOAT, prev, phase,
+                MPI_COMM_WORLD, sim->req+2);
+
+        MPI_Irecv(sim->recvbuf_u_r, sim->max_count_buffer, MPI_FLOAT, next, phase,
+                MPI_COMM_WORLD, sim->req+3);   
+    }
+    else if (phase == 1){
+        // Start nonblocking send/recieve along y axis
+        MPI_Isend(sim->sendbuf_u_t, sim->max_count_buffer, MPI_FLOAT, prev, phase,
+                MPI_COMM_WORLD, sim->req+0);
+
+        MPI_Isend(sim->sendbuf_u_b, sim->max_count_buffer, MPI_FLOAT, next, phase,
+                MPI_COMM_WORLD, sim->req+1);
+
+        MPI_Irecv(sim->recvbuf_u_t, sim->max_count_buffer, MPI_FLOAT, prev, phase,
+                MPI_COMM_WORLD, sim->req+2);
+
+        MPI_Irecv(sim->recvbuf_u_b, sim->max_count_buffer, MPI_FLOAT, next, phase,
+                MPI_COMM_WORLD, sim->req+3);   
+    }
+
+    // if (phase == 0){
+    //     MPI_Sendrecv(sim->sendbuf_u_l, sim->max_count_buffer, MPI_FLOAT,
+    //                  prev, 0, sim->recvbuf_u_l, sim->max_count_buffer, 
+    //                  MPI_FLOAT, prev, 0, MPI_COMM_WORLD, 0);
+
+
+    //     MPI_Sendrecv(sim->sendbuf_u_r, sim->max_count_buffer, MPI_FLOAT,
+    //                  next, 1, sim->recvbuf_u_r, sim->max_count_buffer, 
+    //                  MPI_FLOAT, next, 1, MPI_COMM_WORLD, 0);
+
+    // }
+    // else if (phase == 1){
+    //     MPI_Sendrecv(sim->sendbuf_u_t, sim->max_count_buffer, MPI_FLOAT,
+    //                  prev, 2, sim->recvbuf_u_t, sim->max_count_buffer, 
+    //                  MPI_FLOAT, prev, 2, MPI_COMM_WORLD, 0);
+
+    //     MPI_Sendrecv(sim->sendbuf_u_b, sim->max_count_buffer, MPI_FLOAT,
+    //                  next, 3, sim->recvbuf_u_b, sim->max_count_buffer, 
+    //                  MPI_FLOAT, next, 3, MPI_COMM_WORLD, 0);
+        
+    // }
+}
+
+static
+void copy_from_recvbufs(central2d_mpi_t* sim, int phase)
+{   
+    int stride_n = (2*sim->ng + sim->nx) * (2*sim->ng + sim->ny);
+    int stride_y = 2*sim->ng + sim->nx;
+    if (phase == 0){
+        int stride_n_buffer, j_sim, i_sim_l, i_sim_r;
+        stride_n_buffer = sim->ng * sim->ny;
+        for (int n = 0; n < sim->nfield; ++n)
+            for (int j = 0; j < sim->ny; ++j){
+                j_sim = j + sim->ng;
+                for (int i = 0; i < sim->ng; ++i){
+                    i_sim_l = i;
+                    i_sim_r = i + sim->nx + sim->ng;
+                    sim->u[n*stride_n + j_sim*stride_y + i_sim_l] = \
+                    sim->recvbuf_u_l[n*stride_n_buffer + j*sim->ng + i];
+                    sim->u[n*stride_n + j_sim*stride_y + i_sim_r] = \
+                    sim->recvbuf_u_r[n*stride_n_buffer + j*sim->ng + i];
+                }
+            }
+    }
+
+    else if (phase == 1){
+        int stride_n_buffer, stride_j_buffer, j_sim_b, j_sim_t, i_sim;
+        stride_n_buffer = sim->ng * (sim->nx + 2*sim->ng);
+        stride_j_buffer = sim->nx + 2*sim->ng;
+        for (int n = 0; n < sim->nfield; ++n)
+            for (int j = 0; j < sim->ng; ++j){
+                j_sim_b = j + sim->ny + sim->ng;
+                j_sim_t = j;
+                for (int i = 0; i < sim->nx + 2*sim->ng; ++i){
+                    i_sim = i;
+                    sim->u[n*stride_n + j_sim_b*stride_y + i_sim] = \
+                    sim->recvbuf_u_b[n*stride_n_buffer + j*stride_j_buffer + i];
+                    sim->u[n*stride_n + j_sim_t*stride_y + i_sim] = \
+                    sim->recvbuf_u_t[n*stride_n_buffer + j*stride_j_buffer + i];
+                }
+            }
+    }
+}
+
+void sub_end_sendrecv(central2d_mpi_t* sim, int phase)
+{
+    // Wait for requests to complete
+    MPI_Waitall(4, sim->req, MPI_STATUSES_IGNORE);
+
+    // Copy data from receive buffers into u for next phase of computation
+    copy_from_recvbufs(sim, phase);
 }

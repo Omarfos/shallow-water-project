@@ -3,6 +3,7 @@
 
 #include <math.h>
 #include <stdbool.h>
+#include <mpi.h>
 
 //ldoc
 /**
@@ -59,6 +60,52 @@ typedef struct central2d_t {
 
 } central2d_t;
 
+
+typedef struct central2d_mpi_t {
+
+    // Number of procs and local rank in MPI communicator
+    int nproc;
+    int rank;
+
+    // Offsets and counts of points owned by each cell
+    int* restrict offsets_x; // Start offsets along x axis for each rank in global idx
+    int* restrict offsets_y; // Start offsets along y axis for each rank in global idx
+    int npartx, nparty;  // Number of blocks along x and y axis
+    int blocki, blockj; // block idx in sim_global
+    int max_count_buffer; // max_count for the buffers
+
+    int nfield;   // Number of components in system
+    int nx, ny;   // Grid resolution in x/y (without ghost cells)
+    int ng;       // Number of ghost cells
+    float dx, dy; // Cell width in x/y
+    float cfl;    // Max allowed CFL number
+
+    // Flux and speed functions
+    flux_t flux;
+    speed_t speed;
+
+    // Storage
+    float* u;
+    float* v;
+    float* f;
+    float* g;
+    float* scratch;
+
+    // Send buffer as continuous address for gcell copy between neighbors
+    float* sendbuf_u_l;
+    float* sendbuf_u_r;
+    float* sendbuf_u_b;
+    float* sendbuf_u_t;
+
+    // Receive buffer as continuous address for gcell copy between neighbors
+    float* recvbuf_u_l;
+    float* recvbuf_u_r;
+    float* recvbuf_u_b;
+    float* recvbuf_u_t;
+
+    MPI_Request req[4];           // Send and receive requests
+
+} central2d_mpi_t;
 
 /**
  * For the most part, we treat the `central2d_t` as a read-only
@@ -121,10 +168,29 @@ void sub_copyin(central2d_t* restrict sim_local,
                 int own_start_x, int own_end_x,
                 int own_start_y, int own_end_y);
 
+void sub_mpi_copyin(central2d_mpi_t* restrict sim_local,
+                    central2d_t* restrict sim_global,
+                    int own_start_x, int own_end_x,
+                    int own_start_y, int own_end_y);
+
 void sub_copyout(central2d_t* restrict sim_local,
                  central2d_t* restrict sim_global,
                  int own_start_x, int own_end_x,
                  int own_start_y, int own_end_y);
+
+void sub_field_copyout(float* restrict field_local, float* restrict field_global, int nx, int ny, 
+                       int ng, int own_start_x, int own_end_x, int own_start_y, int own_end_y);
+
+void sub_mpi_copyout(central2d_mpi_t* restrict sim_local,
+                     central2d_t* restrict sim_global,
+                     int own_start_x, int own_end_x,
+                     int own_start_y, int own_end_y);
+
+void central2d_batch_run(central2d_t* sim, float tfinal, int batch,
+                        int* nstep, float* t, bool* done);
+
+void central2d_mpi_batch_run(central2d_mpi_t* sim, float tfinal, int batch,
+                        int* nstep, float* t, bool* done);
 
 void central2d_sub_run(central2d_t* restrict sim_local,
               central2d_t* restrict sim_global,
@@ -134,6 +200,19 @@ void central2d_sub_run(central2d_t* restrict sim_local,
               int* nstep, float* t, bool* done);
 
 int* alloc_partition(int n, int ng, int block_n, int* npart);
+
+central2d_mpi_t* central2d_mpi_init(float dx, float dy, int nfield, 
+                        flux_t flux, speed_t speed, float cfl, int ng, 
+                        int* offsets_x, int* offsets_y,
+                        int npartx, int nparty);
+
+int central2d_mpi_offset(central2d_mpi_t* sim, int k, int ix, int iy);
+
+void sub_start_sendrecv(central2d_mpi_t* sim, int phase);
+
+void sub_end_sendrecv(central2d_mpi_t* sim, int phase);
+
+void central2d_mpi_free(central2d_mpi_t* sim);
 
 //ldoc off
 #endif /* STEPPER_H */

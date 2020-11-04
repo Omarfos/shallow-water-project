@@ -1,4 +1,4 @@
-PLATFORM=graphite
+PLATFORM=comet
 include ../config/Makefile.in.$(PLATFORM)
 
 # ===

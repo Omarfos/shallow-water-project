@@ -2,19 +2,16 @@
 #SBATCH -J shallow
 #SBATCH -o /home/jz853/shallow-water-project/results/mpi/shallow_mpi.out
 #SBATCH -e /home/jz853/shallow-water-project/results/mpi/shallow_mpi.err
-#SBATCH --nodes=8
-#SBATCH --ntasks=96 
-#SBATCH --tasks-per-node=12
-#SBATCH --ntasks-per-socket=6
-#SBATCH --distribution=cyclic:cyclic
+#SBATCH --nodes=4
+#SBATCH --ntasks=96
+#SBATCH --tasks-per-node=24
 #SBATCH --cpus-per-task=1 
 #SBATCH --get-user-env 
-#SBATCH -t 00:10:00 
+#SBATCH -t 00:5:00 
 #SBATCH --mem-per-cpu=1000 
-#SBATCH --partition=cs5220 
+#SBATCH --partition=debug
 
 source /etc/profile.d/modules.sh 
-module load openmpi-4.0.0 
 cd $HOME/shallow-water-project
-mpirun -n 96  src/lshallow tests.lua dam 1000 4 125 84
+mpirun -n 81 src/lshallow tests.lua dam 1000 4 112
 

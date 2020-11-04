@@ -210,7 +210,8 @@ int run_sim(lua_State* L)
     lua_getfield(L, 1, "vskip");
     lua_getfield(L, 1, "frames");
     lua_getfield(L, 1, "batch");
-    lua_getfield(L, 1, "block_n");
+    lua_getfield(L, 1, "block_nx");
+    lua_getfield(L, 1, "block_ny");
     lua_getfield(L, 1, "out");
 
     double w     = luaL_optnumber(L, 2, 2.0);
@@ -222,8 +223,9 @@ int run_sim(lua_State* L)
     int vskip    = luaL_optinteger(L, 8, 1);
     int frames   = luaL_optinteger(L, 9, 50);
     int batch   = luaL_optinteger(L, 10, 1);
-    int block_n   = luaL_optinteger(L, 11, 1);
-    const char* fname = luaL_optstring(L, 12, "sim.out");
+    int block_nx   = luaL_optinteger(L, 11, 1);
+    int block_ny   = luaL_optinteger(L, 12, 1);
+    const char* fname = luaL_optstring(L, 13, "sim.out");
     lua_pop(L, 9);
 
     // Number of ghost cell
@@ -233,14 +235,14 @@ int run_sim(lua_State* L)
 
     // Partition the x axis
     int npartx;
-    int* offsets_x = alloc_partition(sim_global->nx, sim_global->ng, block_n, &npartx);
+    int* offsets_x = alloc_partition(sim_global->nx, sim_global->ng, block_nx, &npartx);
 
     // Partition the y axis
     int nparty;
-    int* offsets_y = alloc_partition(sim_global->ny, sim_global->ng, block_n, &nparty);
+    int* offsets_y = alloc_partition(sim_global->ny, sim_global->ng, block_ny, &nparty);
 
     if (world_rank == 0){
-        printf("batch size = %d, block size = %d \n", batch, block_n);
+        printf("batch size = %d, block_nx = %d, block_ny = %d \n", batch, block_nx, block_ny);
         printf("offsets_x: \n");
         for (int i = 0; i <= npartx; ++i)
             printf("%d, ", offsets_x[i]);

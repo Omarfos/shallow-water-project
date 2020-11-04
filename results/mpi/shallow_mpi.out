@@ -1,0 +1,95 @@
+MPI worldrank: 5
+MPI worldrank: 7
+MPI worldrank: 4
+MPI worldrank: 9
+MPI worldrank: 11
+MPI worldrank: 1
+MPI worldrank: 3
+MPI worldrank: 8
+MPI worldrank: 6
+MPI worldrank: 0
+MPI worldsize: 84
+MPI worldrank: 2
+MPI worldrank: 10
+batch size = 4, block size = 112 
+offsets_x: 
+10, 122, 234, 346, 458, 570, 682, 794, 906, 1010, 
+offsets_y: 
+10, 122, 234, 346, 458, 570, 682, 794, 906, 1010, 
+MPI worldrank: 70
+MPI worldrank: 65
+MPI worldrank: 41
+MPI worldrank: 72
+MPI worldrank: 47
+MPI worldrank: 71
+MPI worldrank: 13
+MPI worldrank: 49
+MPI worldrank: 76
+MPI worldrank: 39
+MPI worldrank: 61
+MPI worldrank: 25
+MPI worldrank: 22
+MPI worldrank: 50
+MPI worldrank: 78
+MPI worldrank: 45
+MPI worldrank: 62
+MPI worldrank: 29
+MPI worldrank: 20
+MPI worldrank: 53
+MPI worldrank: 79
+MPI worldrank: 46
+MPI worldrank: 63
+MPI worldrank: 30
+MPI worldrank: 12
+MPI worldrank: 55
+MPI worldrank: 83
+MPI worldrank: 37
+MPI worldrank: 67
+MPI worldrank: 32
+MPI worldrank: 14
+MPI worldrank: 56
+MPI worldrank: 74
+MPI worldrank: 38
+MPI worldrank: 64
+MPI worldrank: 34
+MPI worldrank: 16
+MPI worldrank: 58
+MPI worldrank: 81
+MPI worldrank: 40
+MPI worldrank: 66
+MPI worldrank: 35
+MPI worldrank: 17
+MPI worldrank: 59
+MPI worldrank: 73
+MPI worldrank: 42
+MPI worldrank: 69
+MPI worldrank: 26
+MPI worldrank: 18
+MPI worldrank: 48
+MPI worldrank: 75
+MPI worldrank: 43
+MPI worldrank: 68
+MPI worldrank: 28
+MPI worldrank: 19
+MPI worldrank: 51
+MPI worldrank: 77
+MPI worldrank: 44
+MPI worldrank: 60
+MPI worldrank: 27
+MPI worldrank: 21
+MPI worldrank: 52
+MPI worldrank: 82
+MPI worldrank: 36
+MPI worldrank: 24
+MPI worldrank: 80
+MPI worldrank: 23
+MPI worldrank: 54
+MPI worldrank: 15
+MPI worldrank: 57
+MPI worldrank: 31
+MPI worldrank: 33
+2 2 1000 1000 0.45 50 0.01
+-
+  Volume: 4.39273
+  Momentum: (0, 0)
+  Range: [1, 1.5]

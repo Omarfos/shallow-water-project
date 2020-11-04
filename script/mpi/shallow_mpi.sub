@@ -2,8 +2,8 @@
 #SBATCH -J shallow
 #SBATCH -o /home/jz853/shallow-water-project/results/mpi/shallow_mpi.out
 #SBATCH -e /home/jz853/shallow-water-project/results/mpi/shallow_mpi.err
-#SBATCH --nodes=7
-#SBATCH --ntasks=84 
+#SBATCH --nodes=8
+#SBATCH --ntasks=96 
 #SBATCH --tasks-per-node=12
 #SBATCH --ntasks-per-socket=6
 #SBATCH --distribution=cyclic:cyclic

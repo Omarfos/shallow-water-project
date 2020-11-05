@@ -83,8 +83,8 @@ void solution_check_mpi(central2d_mpi_t* sim)
     h_sum *= cell_area;
     hu_sum *= cell_area;
     hv_sum *= cell_area;
-    printf("-\n  Volume: %g\n  Momentum: (%g, %g)\n  Range: [%g, %g]\n",
-           h_sum, hu_sum, hv_sum, hmin, hmax);
+    //printf("-\n  Volume: %g\n  Momentum: (%g, %g)\n  Range: [%g, %g]\n",
+    //       h_sum, hu_sum, hv_sum, hmin, hmax);
     assert(hmin > 0);
 }
 
@@ -312,8 +312,39 @@ int run_sim(lua_State* L)
 
     FILE* viz;
     double tcompute;
+
+	// MP allocation
+    // remember to free later
+	int mp_npartx = 3;
+    int* mp_offsets_x = mp_alloc_partition(sim_local->nx, sim_local->ng, sim_local->nx/ mp_npartx, mp_npartx);
+    printf("mp_offsets_x: \n");
+    for (int i = 0; i <= mp_npartx; ++i) 
+        printf("%d, ", mp_offsets_x[i]);
+    printf("\n");
+
+    // Partition the y axis
+	int mp_nparty = 4;
+    int* mp_offsets_y = mp_alloc_partition(sim_local->ny, sim_local->ng, sim_local->ny/mp_nparty, mp_nparty);
+    printf("mp_offsets_y: \n");
+    for (int i = 0; i <= mp_nparty; ++i) 
+        printf("%d, ", mp_offsets_y[i]);
+    printf("\n");
+
+    int mp_nx, mp_ny;
+    central2d_t** sim_local_all = (central2d_t**) malloc(mp_npartx * mp_nparty * sizeof(central2d_t*));
+    for (int j = 0; j < mp_nparty; ++j)
+        for (int i = 0; i < mp_npartx; ++i){
+            mp_nx = mp_offsets_x[i+1] - mp_offsets_x[i];
+            mp_ny = mp_offsets_y[j+1] - mp_offsets_y[j];
+			
+            sim_local_all[i + j*mp_npartx] = central2d_sub_init(sim_local->dx, sim_local->dy, mp_nx, mp_ny, 3, 
+                                         shallow2d_flux, shallow2d_speed, cfl, sim_local->ng);
+        }
+
+    int num_threads = atoi(getenv("OMP_NUM_THREADS"));
+
     if (world_rank == 0){
-        printf("%g %g %d %d %g %d %g\n", w, h, nx_global, ny_global, cfl, frames, ftime);
+        printf("%g %g %d %d %g %d %g num_threads: %d\n", w, h, nx_global, ny_global, cfl, frames, ftime, num_threads);
         viz = viz_open(fname, sim_global, vskip);
         solution_check(sim_global);
         viz_frame(viz, sim_global, vskip);
@@ -333,13 +364,58 @@ int run_sim(lua_State* L)
 
         bool done_all = false;
 
+
         // Run
+		// allocate memory for offsets
         while (!done_all){
             done_all = true;
             // run one batch time for each process
-            central2d_mpi_batch_run(sim_local, ftime, batch, \
-                    &nstep[sim_local->blocki + npartx * sim_local->blockj], \
-                    &t[sim_local->blocki + npartx * sim_local->blockj], &done);
+#ifndef MP
+			bool mp_done_all = false;
+			bool mp_done[mp_npartx*mp_nparty];
+			int mp_nstep[mp_npartx*mp_nparty];
+			float mp_t[mp_npartx*mp_nparty];
+			memset(mp_nstep, 0, mp_npartx*mp_nparty*sizeof(int));
+			memset(mp_t, 0.0, mp_npartx*mp_nparty*sizeof(float));
+
+			while (!mp_done_all) {
+				mp_done_all = true;
+				for (int j = 0; j < mp_nparty; ++j) {
+					for (int i = 0; i < mp_npartx; ++i){
+						if (!mp_done[i + j*mp_npartx]) mp_done_all = false;
+						
+						central2d_sub_run(sim_local_all[i + j*mp_npartx], sim_local,
+								mp_offsets_x[i], mp_offsets_x[i+1],
+								mp_offsets_y[j], mp_offsets_y[j+1],
+								ftime, batch, &mp_nstep[i + j*mp_npartx], 
+								&mp_t[i + j*mp_npartx], &mp_done[i + j*mp_npartx]);
+					}
+				}
+
+
+
+				for (int j = 0; j < mp_nparty; ++j) {
+					for (int i = 0; i < mp_npartx; ++i){
+						sub_copyout(sim_local_all[i + j*npartx], sim_local,
+								mp_offsets_x[i], mp_offsets_x[i+1],
+								mp_offsets_y[j], mp_offsets_y[j+1]);
+					}
+				}
+			}
+
+			done = true;
+			nstep[sim_local->blocki + npartx * sim_local->blockj] = mp_nstep[0];
+			t[sim_local->blocki + npartx * sim_local->blockj] = mp_t[0];
+			printf("nstep: %d, t: %g\n", mp_nstep[0], mp_t[0]);
+			
+			central2d_periodic(sim_local->u, sim_local->nx, sim_local->ny, sim_local->ng, 3);
+#else
+			central2d_mpi_batch_run(sim_local, ftime, batch, \
+					&nstep[sim_local->blocki + npartx * sim_local->blockj], \
+					&t[sim_local->blocki + npartx * sim_local->blockj], &done);
+
+#endif
+
 
             //send and receive buffers left and right
             sub_start_sendrecv(sim_local, 0);
@@ -368,7 +444,9 @@ int run_sim(lua_State* L)
         
         // Root process copy sim_u_all into sim_global
         if (world_rank == 0){
+ 			//#pragma omp parallel for collapse(2) - No perforamce increase
             for(int blockindexj = 0; blockindexj < nparty; ++blockindexj){
+ 				//#pragma omp parallel for - No performance increase
                 for (int blockindexi = 0; blockindexi < npartx; ++blockindexi){
                     sub_field_copyout(sim_u_all + blockuindex[blockindexi + npartx * blockindexj], \
                                       sim_global->u, nx_global, ny_global, \

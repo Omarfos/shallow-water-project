@@ -164,7 +164,7 @@ void central2d_batch_run(central2d_t* sim, float tfinal, int batch,
 void central2d_periodic(float* u, int nx, int ny, int ng, int nfield);
 
 void sub_copyin(central2d_t* restrict sim_local,
-                central2d_t* restrict sim_global,
+                central2d_mpi_t* restrict sim_global,
                 int own_start_x, int own_end_x,
                 int own_start_y, int own_end_y);
 
@@ -174,7 +174,7 @@ void sub_mpi_copyin(central2d_mpi_t* restrict sim_local,
                     int own_start_y, int own_end_y);
 
 void sub_copyout(central2d_t* restrict sim_local,
-                 central2d_t* restrict sim_global,
+                 central2d_mpi_t* restrict sim_global,
                  int own_start_x, int own_end_x,
                  int own_start_y, int own_end_y);
 
@@ -193,13 +193,15 @@ void central2d_mpi_batch_run(central2d_mpi_t* sim, float tfinal, int batch,
                         int* nstep, float* t, bool* done);
 
 void central2d_sub_run(central2d_t* restrict sim_local,
-              central2d_t* restrict sim_global,
+              central2d_mpi_t* restrict sim_global,
               int own_start_x, int own_end_x,
               int own_start_y, int own_end_y,
               float tfinal, int batch,
               int* nstep, float* t, bool* done);
 
 int* alloc_partition(int n, int ng, int block_n, int* npart);
+int* mp_alloc_partition(int n, int ng, int block_n, int np);
+
 
 central2d_mpi_t* central2d_mpi_init(float dx, float dy, int nfield, 
                         flux_t flux, speed_t speed, float cfl, int ng, 

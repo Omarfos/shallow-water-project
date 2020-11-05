@@ -571,7 +571,7 @@ void sub_field_copyout(float* restrict field_local, float* restrict field_global
  * of sim_global into a local copy (sim_local).
  */
 void sub_copyin(central2d_t* restrict sim_local,
-                central2d_t* restrict sim_global,
+                central2d_mpi_t* restrict sim_global,
                 int own_start_x, int own_end_x,
                 int own_start_y, int own_end_y)
 {   
@@ -600,7 +600,7 @@ void sub_mpi_copyin(central2d_mpi_t* restrict sim_local,
  *  back into sim_global.
  */
 void sub_copyout(central2d_t* restrict sim_local,
-                 central2d_t* restrict sim_global,
+                 central2d_mpi_t* restrict sim_global,
                  int own_start_x, int own_end_x,
                  int own_start_y, int own_end_y)
 {
@@ -629,7 +629,7 @@ void sub_mpi_copyout(central2d_mpi_t* restrict sim_local,
  *
  */
 void central2d_sub_run(central2d_t* restrict sim_local,
-              central2d_t* restrict sim_global,
+              central2d_mpi_t* restrict sim_global,
               int own_start_x, int own_end_x,
               int own_start_y, int own_end_y,
               float tfinal, int batch,
@@ -656,6 +656,16 @@ int* alloc_partition(int n, int ng, int block_n, int* npart)
     *npart = np;
     return offsets;
 }
+
+int* mp_alloc_partition(int n, int ng, int block_n, int np)
+{
+    int* offsets = (int*) malloc((np+1) * sizeof(int));
+    for (int i = 0; i <= np; ++i) {
+        offsets[i] = (i * block_n > n) ? n + ng : i * block_n + ng;
+    }
+    return offsets;
+}
+
 
 // Helper function: check an allocation and clear the space
 void* clear_malloc(size_t len)

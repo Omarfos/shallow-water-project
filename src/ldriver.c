@@ -315,7 +315,7 @@ int run_sim(lua_State* L)
 
 	// MP allocation
     // remember to free later
-	int mp_npartx = 3;
+	int mp_npartx = 4;
     int* mp_offsets_x = mp_alloc_partition(sim_local->nx, sim_local->ng, sim_local->nx/ mp_npartx, mp_npartx);
     printf("mp_offsets_x: \n");
     for (int i = 0; i <= mp_npartx; ++i) 
@@ -371,12 +371,13 @@ int run_sim(lua_State* L)
             done_all = true;
             // run one batch time for each process
 #ifndef MP
-			bool mp_done_all = false;
 			bool mp_done[mp_npartx*mp_nparty];
 			int mp_nstep[mp_npartx*mp_nparty];
 			float mp_t[mp_npartx*mp_nparty];
 			memset(mp_nstep, 0, mp_npartx*mp_nparty*sizeof(int));
 			memset(mp_t, 0.0, mp_npartx*mp_nparty*sizeof(float));
+			memset(mp_done, false, mp_npartx*mp_nparty*sizeof(bool));
+
 
 			while (!mp_done_all) {
 				mp_done_all = true;
@@ -396,19 +397,26 @@ int run_sim(lua_State* L)
 
 				for (int j = 0; j < mp_nparty; ++j) {
 					for (int i = 0; i < mp_npartx; ++i){
-						sub_copyout(sim_local_all[i + j*npartx], sim_local,
+						sub_copyout(sim_local_all[i + j*mp_npartx], sim_local,
 								mp_offsets_x[i], mp_offsets_x[i+1],
 								mp_offsets_y[j], mp_offsets_y[j+1]);
 					}
 				}
 			}
 
+			for (int j = 0; j < mp_nparty; ++j) {
+				for (int i = 0; i < mp_npartx; ++i){
+					printf("%d %g\n", mp_nstep[i + j*mp_npartx], mp_t[i + j*mp_npartx]);
+				}
+			}
+
+
 			done = true;
 			nstep[sim_local->blocki + npartx * sim_local->blockj] = mp_nstep[0];
 			t[sim_local->blocki + npartx * sim_local->blockj] = mp_t[0];
 			printf("nstep: %d, t: %g\n", mp_nstep[0], mp_t[0]);
 			
-			central2d_periodic(sim_local->u, sim_local->nx, sim_local->ny, sim_local->ng, 3);
+			//central2d_periodic(sim_local->u, sim_local->nx, sim_local->ny, sim_local->ng, 3);
 #else
 			central2d_mpi_batch_run(sim_local, ftime, batch, \
 					&nstep[sim_local->blocki + npartx * sim_local->blockj], \

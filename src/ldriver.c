@@ -278,15 +278,8 @@ int run_sim(lua_State* L)
     
     central2d_t* sim_local;
     int blocki, blockj;
-    if (world_rank==0){
-      blocki = 0; blockj = 0;
-    }else if (world_rank==1){
-      blocki = 1; blockj = 0;
-    }else if (world_rank==2){
-      blocki = 0; blockj = 1;
-    }else if (world_rank==3){
-      blocki = 1; blockj = 1;
-    }
+    blocki = world_rank % npartx;
+    blockj = world_rank / nparty;
       
     // Set up storage for subdomains
     nx = offsets_x[blocki+1] - offsets_x[blocki];
@@ -302,11 +295,13 @@ int run_sim(lua_State* L)
 	       offsets_y[blockj], offsets_y[blockj+1]);
 
 
-    if (world_rank==0)
+    if (world_rank==0){
       printf("%g %g %d %d %g %d %g\n", w, h, nx_global, ny_global, cfl, frames, ftime);
-    FILE* viz = viz_open(fname, sim_global, vskip);
-    solution_check(sim_global);
-    viz_frame(viz, sim_global, vskip);
+      FILE* viz = viz_open(fname, sim_global, vskip);
+      solution_check(sim_global);
+      viz_frame(viz, sim_global, vskip);
+    }
+      
 
     double tcompute = 0;
     for (int i = 0; i < frames; ++i) {

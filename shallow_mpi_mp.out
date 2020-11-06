@@ -1,0 +1,358 @@
+MPI worldrank: 0
+MPI worldsize: 16
+batch size = 1, block_nx = 250, block_ny = 250 
+offsets_x: 
+4, 254, 504, 754, 1004, 
+offsets_y: 
+4, 254, 504, 754, 1004, 
+MPI worldrank: 2
+MPI worldrank: 1
+MPI worldrank: 12
+MPI worldrank: 11
+MPI worldrank: 14
+MPI worldrank: 8
+MPI worldrank: 4
+MPI worldrank: 7
+MPI worldrank: 13
+MPI worldrank: 10
+MPI worldrank: 3
+MPI worldrank: 6
+MPI worldrank: 15
+MPI worldrank: 9
+MPI worldrank: 5
+num_threads: 6
+mp_offsets_x: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+mp_offsets_y: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+num_threads: 6
+mp_offsets_x: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+mp_offsets_y: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+num_threads: 6
+mp_offsets_x: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+mp_offsets_y: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+num_threads: 6
+mp_offsets_x: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+mp_offsets_y: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+num_threads: 6
+mp_offsets_x: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+mp_offsets_y: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+num_threads: 6
+mp_offsets_x: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+mp_offsets_y: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+num_threads: 6
+mp_offsets_x: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+mp_offsets_y: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+2 2 1000 1000 0.45 50 0.01 
+num_threads: 6
+mp_offsets_x: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+mp_offsets_y: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+num_threads: 6
+mp_offsets_x: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+mp_offsets_y: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+num_threads: 6
+mp_offsets_x: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+mp_offsets_y: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+num_threads: 6
+mp_offsets_x: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+mp_offsets_y: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+num_threads: 6
+mp_offsets_x: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+mp_offsets_y: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+num_threads: 6
+mp_offsets_x: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+mp_offsets_y: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+num_threads: 6
+mp_offsets_x: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+mp_offsets_y: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+num_threads: 6
+mp_offsets_x: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+mp_offsets_y: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+-
+  Volume: 4.39273
+  Momentum: (0, 0)
+  Range: [1, 1.5]
+num_threads: 6
+mp_offsets_x: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+mp_offsets_y: 
+4, 45, 86, 127, 168, 209, 250, 254, 
+-
+  Volume: 4.39499
+  Momentum: (7.4608e-05, 7.43186e-05)
+  Range: [0.974196, 1.52323]
+  Time: 1.386578e-01 (4.078171e-03 for 34 steps)
+-
+  Volume: 4.39495
+  Momentum: (-6.13212e-05, -6.12172e-05)
+  Range: [0.978187, 1.56491]
+  Time: 9.328301e-02 (2.743618e-03 for 34 steps)
+-
+  Volume: 4.39466
+  Momentum: (-0.000116811, -0.000116927)
+  Range: [0.985009, 1.90953]
+  Time: 9.175304e-02 (2.698619e-03 for 34 steps)
+-
+  Volume: 4.38937
+  Momentum: (-0.000102933, -0.000103919)
+  Range: [0.988033, 1.88823]
+  Time: 8.870353e-02 (2.608927e-03 for 34 steps)
+-
+  Volume: 4.3898
+  Momentum: (-9.04065e-05, -9.05115e-05)
+  Range: [0.984769, 1.82183]
+  Time: 8.846429e-02 (2.601891e-03 for 34 steps)
+-
+  Volume: 4.39046
+  Momentum: (-2.04642e-05, -2.04277e-05)
+  Range: [0.937523, 1.86448]
+  Time: 8.737742e-02 (2.569924e-03 for 34 steps)
+-
+  Volume: 4.39032
+  Momentum: (-0.000378779, -0.000379232)
+  Range: [0.907421, 1.82326]
+  Time: 8.769142e-02 (2.579159e-03 for 34 steps)
+-
+  Volume: 4.391
+  Momentum: (-0.000514846, -0.000514892)
+  Range: [0.782336, 1.58713]
+  Time: 9.347686e-02 (2.749319e-03 for 34 steps)
+-
+  Volume: 4.39038
+  Momentum: (-0.000349791, -0.000349956)
+  Range: [0.95674, 1.72547]
+  Time: 8.864174e-02 (2.607110e-03 for 34 steps)
+-
+  Volume: 4.38783
+  Momentum: (-0.000495414, -0.000495447)
+  Range: [0.914262, 1.68428]
+  Time: 8.623409e-02 (2.536297e-03 for 34 steps)
+-
+  Volume: 4.38916
+  Momentum: (-0.000364809, -0.000365086)
+  Range: [0.925645, 1.70187]
+  Time: 8.615569e-02 (2.533991e-03 for 34 steps)
+-
+  Volume: 4.38798
+  Momentum: (-0.000123474, -0.000123013)
+  Range: [0.98624, 2.13827]
+  Time: 8.664132e-02 (2.548274e-03 for 34 steps)
+-
+  Volume: 4.38747
+  Momentum: (-8.76147e-05, -8.75512e-05)
+  Range: [0.986947, 1.94234]
+  Time: 8.611126e-02 (2.532684e-03 for 34 steps)
+-
+  Volume: 4.38651
+  Momentum: (8.43788e-05, 8.42074e-05)
+  Range: [0.987182, 1.83801]
+  Time: 8.612145e-02 (2.532984e-03 for 34 steps)
+-
+  Volume: 4.3857
+  Momentum: (0.000273365, 0.000273663)
+  Range: [0.987134, 1.71737]
+  Time: 8.641500e-02 (2.541618e-03 for 34 steps)
+-
+  Volume: 4.38335
+  Momentum: (0.000688393, 0.000690351)
+  Range: [0.984647, 1.63671]
+  Time: 8.597354e-02 (2.528634e-03 for 34 steps)
+-
+  Volume: 4.38264
+  Momentum: (0.000506513, 0.000506758)
+  Range: [0.984342, 1.56482]
+  Time: 8.615687e-02 (2.534026e-03 for 34 steps)
+-
+  Volume: 4.38221
+  Momentum: (0.00051741, 0.000517639)
+  Range: [0.984536, 1.68246]
+  Time: 8.653342e-02 (2.545101e-03 for 34 steps)
+-
+  Volume: 4.38205
+  Momentum: (0.000605249, 0.000604323)
+  Range: [0.983887, 1.67553]
+  Time: 8.659388e-02 (2.546879e-03 for 34 steps)
+-
+  Volume: 4.38041
+  Momentum: (0.000538495, 0.00053862)
+  Range: [0.985534, 1.61483]
+  Time: 8.652970e-02 (2.544991e-03 for 34 steps)
+-
+  Volume: 4.37974
+  Momentum: (0.000861473, 0.000863384)
+  Range: [0.984322, 1.58685]
+  Time: 8.639744e-02 (2.541101e-03 for 34 steps)
+-
+  Volume: 4.37988
+  Momentum: (0.000903276, 0.000903222)
+  Range: [0.984901, 1.7005]
+  Time: 8.651352e-02 (2.544515e-03 for 34 steps)
+-
+  Volume: 4.38011
+  Momentum: (0.00115996, 0.00116009)
+  Range: [0.984471, 1.66576]
+  Time: 8.626420e-02 (2.537182e-03 for 34 steps)
+-
+  Volume: 4.38077
+  Momentum: (0.00162366, 0.00162306)
+  Range: [0.984024, 1.62108]
+  Time: 8.642723e-02 (2.541977e-03 for 34 steps)
+-
+  Volume: 4.37935
+  Momentum: (0.00187157, 0.0018712)
+  Range: [0.983985, 1.75209]
+  Time: 8.604605e-02 (2.530766e-03 for 34 steps)
+-
+  Volume: 4.3793
+  Momentum: (0.00212105, 0.00212084)
+  Range: [0.985682, 1.76565]
+  Time: 8.698071e-02 (2.558256e-03 for 34 steps)
+-
+  Volume: 4.3788
+  Momentum: (0.0026657, 0.00266676)
+  Range: [0.986055, 1.70919]
+  Time: 8.676830e-02 (2.552009e-03 for 34 steps)
+-
+  Volume: 4.3783
+  Momentum: (0.00271669, 0.00271718)
+  Range: [0.987741, 1.71483]
+  Time: 8.617842e-02 (2.534659e-03 for 34 steps)
+-
+  Volume: 4.37795
+  Momentum: (0.00224464, 0.00224398)
+  Range: [0.987467, 1.5863]
+  Time: 8.688400e-02 (2.555412e-03 for 34 steps)
+-
+  Volume: 4.37752
+  Momentum: (0.00191312, 0.00191153)
+  Range: [0.987046, 1.54924]
+  Time: 8.627130e-02 (2.537391e-03 for 34 steps)
+-
+  Volume: 4.37752
+  Momentum: (0.00181976, 0.00182066)
+  Range: [0.986712, 1.60645]
+  Time: 8.614558e-02 (2.533693e-03 for 34 steps)
+-
+  Volume: 4.37664
+  Momentum: (0.00202372, 0.00202669)
+  Range: [0.986279, 1.58048]
+  Time: 8.608572e-02 (2.531933e-03 for 34 steps)
+-
+  Volume: 4.37597
+  Momentum: (0.00209497, 0.00209344)
+  Range: [0.987726, 1.60493]
+  Time: 8.613601e-02 (2.533412e-03 for 34 steps)
+-
+  Volume: 4.37471
+  Momentum: (0.00226812, 0.00226712)
+  Range: [0.987385, 1.85493]
+  Time: 8.672310e-02 (2.550679e-03 for 34 steps)
+-
+  Volume: 4.37395
+  Momentum: (0.00267733, 0.00267916)
+  Range: [0.989746, 1.81154]
+  Time: 8.623152e-02 (2.536221e-03 for 34 steps)
+-
+  Volume: 4.37264
+  Momentum: (0.00281376, 0.00281337)
+  Range: [0.989017, 1.75687]
+  Time: 8.629059e-02 (2.537959e-03 for 34 steps)
+-
+  Volume: 4.3725
+  Momentum: (0.00298508, 0.002984)
+  Range: [0.988391, 1.62573]
+  Time: 8.618916e-02 (2.534975e-03 for 34 steps)
+-
+  Volume: 4.37248
+  Momentum: (0.00311587, 0.00311519)
+  Range: [0.987215, 1.54797]
+  Time: 8.709088e-02 (2.561496e-03 for 34 steps)
+-
+  Volume: 4.37211
+  Momentum: (0.00314827, 0.00314869)
+  Range: [0.987529, 1.52591]
+  Time: 8.637325e-02 (2.540390e-03 for 34 steps)
+-
+  Volume: 4.37185
+  Momentum: (0.00320909, 0.00320836)
+  Range: [0.988414, 1.56646]
+  Time: 8.653298e-02 (2.545088e-03 for 34 steps)
+-
+  Volume: 4.37131
+  Momentum: (0.00330339, 0.00330388)
+  Range: [0.990449, 1.59502]
+  Time: 8.607050e-02 (2.531485e-03 for 34 steps)
+-
+  Volume: 4.37215
+  Momentum: (0.00320487, 0.00320503)
+  Range: [0.990031, 1.67739]
+  Time: 8.664402e-02 (2.548353e-03 for 34 steps)
+-
+  Volume: 4.37207
+  Momentum: (0.00320455, 0.00320686)
+  Range: [0.989881, 1.74891]
+  Time: 8.676007e-02 (2.551767e-03 for 34 steps)
+-
+  Volume: 4.37298
+  Momentum: (0.00317167, 0.00317255)
+  Range: [0.989474, 1.63139]
+  Time: 8.669819e-02 (2.549947e-03 for 34 steps)
+-
+  Volume: 4.37374
+  Momentum: (0.00328462, 0.00328385)
+  Range: [0.989164, 1.60519]
+  Time: 9.249571e-02 (2.720462e-03 for 34 steps)
+-
+  Volume: 4.37371
+  Momentum: (0.00360981, 0.00360877)
+  Range: [0.988005, 1.53302]
+  Time: 8.659452e-02 (2.546898e-03 for 34 steps)
+-
+  Volume: 4.37323
+  Momentum: (0.00379831, 0.00379819)
+  Range: [0.987699, 1.58009]
+  Time: 8.430400e-02 (2.479529e-03 for 34 steps)
+-
+  Volume: 4.37358
+  Momentum: (0.00388564, 0.00388276)
+  Range: [0.989511, 1.52767]
+  Time: 8.603806e-02 (2.530531e-03 for 34 steps)
+-
+  Volume: 4.37285
+  Momentum: (0.00406953, 0.0040679)
+  Range: [0.991803, 1.62013]
+  Time: 8.660792e-02 (2.547292e-03 for 34 steps)
+-
+  Volume: 4.37243
+  Momentum: (0.00430728, 0.00430686)
+  Range: [0.992966, 1.55155]
+  Time: 8.865216e-02 (2.607416e-03 for 34 steps)
+Total compute time: 4.406910e+00

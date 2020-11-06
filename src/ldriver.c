@@ -451,7 +451,6 @@ int run_sim(lua_State* L)
         // Root process copy sim_u_all into sim_global
         if (world_rank == 0){
             for(int blockindexj = 0; blockindexj < nparty; ++blockindexj){
- 				//#pragma omp parallel for - No performance increase
                 for (int blockindexi = 0; blockindexi < npartx; ++blockindexi){
                     sub_field_copyout(sim_u_all + blockuindex[blockindexi + npartx * blockindexj], \
                                       sim_global->u, nx_global, ny_global, \
@@ -506,7 +505,15 @@ int run_sim(lua_State* L)
 
 int main(int argc, char** argv)
 {   
-    MPI_Init(&argc, &argv);
+    int num_threads = atoi(getenv("OMP_NUM_THREADS"));
+	int active_level;
+	//MPI_Init(&argc, &argv);
+    MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &active_level);
+	if (active_level != MPI_THREAD_FUNNELED) {
+        fprintf(stderr, "No threading support\n");
+        return -1;
+	}
+
     if (argc < 2) {
         fprintf(stderr, "Usage: %s fname args\n", argv[0]);
         return -1;

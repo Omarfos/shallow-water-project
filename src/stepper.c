@@ -657,8 +657,9 @@ int* alloc_partition(int n, int ng, int block_n, int* npart)
     return offsets;
 }
 
-int* mp_alloc_partition(int n, int ng, int block_n, int np)
+int* mp_alloc_partition(int n, int ng, int block_n, int npart)
 {
+    int np = (n + block_n-1)/block_n;
     int* offsets = (int*) malloc((np+1) * sizeof(int));
     for (int i = 0; i <= np; ++i) {
         offsets[i] = (i * block_n > n) ? n + ng : i * block_n + ng;

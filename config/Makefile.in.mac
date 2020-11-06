@@ -1,6 +1,7 @@
 # C compiler and flags
-CC=clang
-CFLAGS=-g
+CC=mpicc
+# add -DMP for openmp
+CFLAGS=-g -DMP
 
 # Optimization flags
 OPTFLAGS=-O3 -march=native -Xpreprocessor -fopenmp -ffast-math

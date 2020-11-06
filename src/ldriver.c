@@ -315,16 +315,19 @@ int run_sim(lua_State* L)
 
 	// MP allocation
     // remember to free later
-	int mp_npartx = 4;
-    int* mp_offsets_x = mp_alloc_partition(sim_local->nx, sim_local->ng, sim_local->nx/ mp_npartx, mp_npartx);
+#ifdef MP
+    int num_threads = omp_get_max_threads();
+	int mp_npartx; 
+    int* mp_offsets_x = alloc_partition(sim_local->nx, sim_local->ng, sim_local->nx/num_threads, &mp_npartx);
+    printf("num_threads: %d\n", num_threads);
     printf("mp_offsets_x: \n");
     for (int i = 0; i <= mp_npartx; ++i) 
         printf("%d, ", mp_offsets_x[i]);
     printf("\n");
 
     // Partition the y axis
-	int mp_nparty = 4;
-    int* mp_offsets_y = mp_alloc_partition(sim_local->ny, sim_local->ng, sim_local->ny/mp_nparty, mp_nparty);
+	int mp_nparty;
+    int* mp_offsets_y = alloc_partition(sim_local->ny, sim_local->ng, sim_local->ny/num_threads, &mp_nparty);
     printf("mp_offsets_y: \n");
     for (int i = 0; i <= mp_nparty; ++i) 
         printf("%d, ", mp_offsets_y[i]);
@@ -341,10 +344,10 @@ int run_sim(lua_State* L)
                                          shallow2d_flux, shallow2d_speed, cfl, sim_local->ng);
         }
 
-    int num_threads = atoi(getenv("OMP_NUM_THREADS"));
+#endif
 
     if (world_rank == 0){
-        printf("%g %g %d %d %g %d %g num_threads: %d\n", w, h, nx_global, ny_global, cfl, frames, ftime, num_threads);
+        printf("%g %g %d %d %g %d %g \n", w, h, nx_global, ny_global, cfl, frames, ftime);
         viz = viz_open(fname, sim_global, vskip);
         solution_check(sim_global);
         viz_frame(viz, sim_global, vskip);
@@ -370,17 +373,20 @@ int run_sim(lua_State* L)
         while (!done_all){
             done_all = true;
             // run one batch time for each process
-#ifndef MP
-			bool mp_done[mp_npartx*mp_nparty];
+#ifdef MP
 			int mp_nstep[mp_npartx*mp_nparty];
 			float mp_t[mp_npartx*mp_nparty];
+			bool mp_done[mp_npartx*mp_nparty];
 			memset(mp_nstep, 0, mp_npartx*mp_nparty*sizeof(int));
 			memset(mp_t, 0.0, mp_npartx*mp_nparty*sizeof(float));
 			memset(mp_done, false, mp_npartx*mp_nparty*sizeof(bool));
 
+            bool mp_done_all = false;
 
 			while (!mp_done_all) {
 				mp_done_all = true;
+
+                //#pragma omp parallel for collapse(2)
 				for (int j = 0; j < mp_nparty; ++j) {
 					for (int i = 0; i < mp_npartx; ++i){
 						if (!mp_done[i + j*mp_npartx]) mp_done_all = false;
@@ -402,21 +408,13 @@ int run_sim(lua_State* L)
 								mp_offsets_y[j], mp_offsets_y[j+1]);
 					}
 				}
-			}
 
-			for (int j = 0; j < mp_nparty; ++j) {
-				for (int i = 0; i < mp_npartx; ++i){
-					printf("%d %g\n", mp_nstep[i + j*mp_npartx], mp_t[i + j*mp_npartx]);
-				}
+			    central2d_periodic(sim_local->u, sim_local->nx, sim_local->ny, sim_local->ng, 3);
 			}
-
 
 			done = true;
 			nstep[sim_local->blocki + npartx * sim_local->blockj] = mp_nstep[0];
 			t[sim_local->blocki + npartx * sim_local->blockj] = mp_t[0];
-			printf("nstep: %d, t: %g\n", mp_nstep[0], mp_t[0]);
-			
-			//central2d_periodic(sim_local->u, sim_local->nx, sim_local->ny, sim_local->ng, 3);
 #else
 			central2d_mpi_batch_run(sim_local, ftime, batch, \
 					&nstep[sim_local->blocki + npartx * sim_local->blockj], \

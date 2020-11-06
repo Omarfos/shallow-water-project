@@ -1,6 +1,7 @@
 # C compiler and flags
 CC=mpicc
-CFLAGS=-g
+# add -DMP for mp, otherwise its MPI only
+CFLAGS=-g -DMP
 
 # Optimization flags
 OPTFLAGS=-O3 -march=native -fopenmp -ffast-math

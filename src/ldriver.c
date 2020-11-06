@@ -315,8 +315,9 @@ int run_sim(lua_State* L)
 
 	// MP allocation
     // remember to free later
-#ifdef MP
-    int num_threads = omp_get_max_threads();
+#ifdef MP    
+	//int num_threads = omp_get_max_threads();
+    int num_threads = atoi(getenv("OMP_NUM_THREADS"));
 	int mp_npartx; 
     int* mp_offsets_x = alloc_partition(sim_local->nx, sim_local->ng, sim_local->nx/num_threads, &mp_npartx);
     printf("num_threads: %d\n", num_threads);
@@ -386,7 +387,7 @@ int run_sim(lua_State* L)
 			while (!mp_done_all) {
 				mp_done_all = true;
 
-                //#pragma omp parallel for collapse(2)
+                #pragma omp parallel for collapse(2)
 				for (int j = 0; j < mp_nparty; ++j) {
 					for (int i = 0; i < mp_npartx; ++i){
 						if (!mp_done[i + j*mp_npartx]) mp_done_all = false;
@@ -398,7 +399,6 @@ int run_sim(lua_State* L)
 								&mp_t[i + j*mp_npartx], &mp_done[i + j*mp_npartx]);
 					}
 				}
-
 
 
 				for (int j = 0; j < mp_nparty; ++j) {
@@ -450,7 +450,6 @@ int run_sim(lua_State* L)
         
         // Root process copy sim_u_all into sim_global
         if (world_rank == 0){
- 			//#pragma omp parallel for collapse(2) - No perforamce increase
             for(int blockindexj = 0; blockindexj < nparty; ++blockindexj){
  				//#pragma omp parallel for - No performance increase
                 for (int blockindexi = 0; blockindexi < npartx; ++blockindexi){

@@ -295,9 +295,10 @@ int run_sim(lua_State* L)
 	       offsets_y[blockj], offsets_y[blockj+1]);
 
 
+    FILE* viz;
     if (world_rank==0){
       printf("%g %g %d %d %g %d %g\n", w, h, nx_global, ny_global, cfl, frames, ftime);
-      FILE* viz = viz_open(fname, sim_global, vskip);
+      viz = viz_open(fname, sim_global, vskip);
       solution_check(sim_global);
       viz_frame(viz, sim_global, vskip);
     }
